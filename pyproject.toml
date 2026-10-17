@@ -7,7 +7,7 @@ name = "nascon-ai-baseline"
 version = "0.1.0"
 description = "Evidence-backed CLI and API using a real local MCP search server"
 requires-python = ">=3.11"
-dependencies = ["fastmcp>=2.14,<4", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "pydantic-settings>=2.7,<3", "exa-py==2.25.0", "feedparser>=6,<7", "playwright>=1.50,<2", "tzdata>=2025.1", "pillow>=12,<14"]
+dependencies = ["fastmcp>=2.14,<4", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "httpcore>=1.0,<2", "pydantic-settings>=2.7,<3", "exa-py==2.25.0", "feedparser>=6,<7", "playwright>=1.50,<2", "tzdata>=2025.1", "pillow>=12,<14"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "pypdf>=6,<7", "pypdfium2>=5,<6"]

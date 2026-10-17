@@ -1,5 +1,20 @@
 # API contract
 
+## Image/engagement feature additions
+
+`POST /api/articles/{article_id}/interactions` accepts `active` (default true, preserving
+existing clients). `liked` and `saved` may be set false; other actions remain additive.
+Responses retain `recorded` and `weights` and add current reader-scoped `engagement`
+and the requested `active` state. `engagement.like_count` is a persisted local-reader
+0/1 count with `like_count_scope=your_local_reader`, not external social popularity.
+
+`GET /api/reading-list` returns this reader's saved article snapshots and edition IDs.
+`GET /api/editions/{id}` adds `article_sections` and `article_engagement` maps, leaving
+stored `articles` unchanged. Image metadata does not mutate historical editions:
+`GET /api/editions/{id}/articles/{article_id}/image/metadata` returns separately cached
+resolution metadata. The existing image-byte endpoint and PDF use that same enrichment.
+All these routes require the existing `X-Reader-ID` scope. No arbitrary proxy URL is accepted.
+
 ## Editorial image delivery
 
 New article snapshots optionally include `image_url`, `image_origin` and `image_credit`.

@@ -2,6 +2,7 @@ import asyncio
 import base64
 from html import escape
 from urllib.parse import urlsplit
+from backend.news.editorial import primary_topic
 
 
 def edition_html(edition, lead_image=None):
@@ -23,7 +24,7 @@ def edition_html(edition, lead_image=None):
                 visual = f'<div class="image-placeholder">{escape(section)}<br><span>In focus · Publisher image unavailable</span></div>'
         date = article["published_at"] or "Publication date unknown"
         link_label = "Open via Google News" if urlsplit(article["url"]).hostname == "news.google.com" else "Read original"
-        articles.append(f'''<article class="{'lead' if index == 0 else ''}"><div class="eyebrow">{escape(' / '.join(article['topics']))}</div>
+        articles.append(f'''<article class="{'lead' if index == 0 else ''}"><div class="eyebrow">{escape(primary_topic(article))}</div>
             <h2>{escape(article['title'])}</h2><p class="source">{escape(article['source'])} · {escape(date)}</p>
             {visual}<p>{escape(article['description']) or 'Read the original for the full story.'}</p>
             <p class="note">Attributed excerpt · Retrieved {escape(article['retrieved_at'])}</p>
@@ -38,7 +39,7 @@ def edition_html(edition, lead_image=None):
     main{{columns:2;column-gap:28px}} article{{break-inside:avoid;border-bottom:1px solid #c5c1b5;padding-bottom:20px;margin-bottom:20px}}
     h2{{font-size:24px;line-height:1.18;margin:8px 0 12px}} article.lead h2{{font-size:30px}} p{{font-size:13px}} .eyebrow{{font:10px Arial;text-transform:uppercase;letter-spacing:2px;color:#34624d}}
     .source,.note{{font:10px Arial;line-height:1.5;color:#57594f}} a{{color:#315b46;font:11px Arial;overflow-wrap:anywhere}} footer{{break-inside:avoid;border-top:2px solid #24271f;margin-top:24px;padding-top:15px}} footer h2{{font-size:22px}} li{{font-size:12px;margin:9px 0;break-inside:avoid}} .disclosure{{font:10px Arial;line-height:1.6}}
-    .lead-picture{{margin:12px 0;break-inside:avoid}} .lead-picture img{{width:100%;max-height:175px;object-fit:contain;display:block;background:#f1f0ea}} figcaption{{font:8px Arial;line-height:1.5;color:#57594f;margin-top:5px}} .image-placeholder{{border-top:1px solid #c5c1b5;border-bottom:1px solid #c5c1b5;padding:16px 0;margin:12px 0;color:#34624d;font:11px Arial;text-transform:uppercase;letter-spacing:1px}} .image-placeholder span{{font:9px Arial;text-transform:none;letter-spacing:0;color:#57594f}}
+    .lead-picture{{margin:12px 0;break-inside:avoid}} .lead-picture img{{width:100%;max-height:175px;object-fit:contain;display:block;background:#f1f0ea}} figcaption{{font:8px Arial;line-height:1.5;color:#57594f;margin-top:5px}} .image-placeholder{{border-top:1px solid #c5c1b5;border-bottom:1px solid #c5c1b5;padding:5px 0;margin:6px 0;color:#34624d;font:11px Arial;text-transform:uppercase;letter-spacing:1px}} .image-placeholder span{{font:9px Arial;text-transform:none;letter-spacing:0;color:#57594f}}
     @page{{size:A4;margin:14mm 12mm 17mm}} @media print{{body{{padding:0;background:white}} header{{padding-top:10px}} h1{{font-size:48px}}}}
     </style></head><body><header><h1>The Daily Mind<span style="color:#34624d">.</span></h1><div class="tagline">Your newspaper. Your curiosity. Your evolving intelligence.</div>
     <div class="dateline"><span>{escape(edition['local_date'])} · {escape(edition['timezone'])}</span><span>Edition {edition['version']} · {edition['article_count']} stories · {edition['source_count']} sources</span></div></header>

@@ -25,6 +25,8 @@ class Store:
                 CREATE INDEX IF NOT EXISTS editions_reader ON editions(profile_id,local_date);
                 CREATE TABLE IF NOT EXISTS generation_leases(profile_id TEXT NOT NULL, local_date TEXT NOT NULL,
                     owner TEXT NOT NULL, expires_at REAL NOT NULL, PRIMARY KEY(profile_id,local_date));
+                CREATE TABLE IF NOT EXISTS article_image_enrichment(article_id TEXT NOT NULL, article_url TEXT NOT NULL,
+                    metadata TEXT NOT NULL, expires_at REAL NOT NULL, PRIMARY KEY(article_id,article_url));
             """)
 
     @contextmanager
@@ -64,16 +66,55 @@ class Store:
             rows = db.execute("SELECT * FROM interactions WHERE profile_id=? ORDER BY created_at", (profile_id,)).fetchall()
         return [{**dict(row), "topics": json.loads(row["topics"])} for row in rows]
 
-    def interact(self, profile_id, article_id, action):
+    def interact(self, profile_id, article_id, action, active=True):
         with self.connect() as db:
             row = db.execute("SELECT value FROM editions JOIN json_each(editions.snapshot,'$.articles') WHERE profile_id=? AND json_extract(value,'$.id')=? ORDER BY local_date DESC,version DESC LIMIT 1",
                              (profile_id, article_id)).fetchone()
             if not row:
                 raise KeyError("Article does not belong to this reader's editions")
             article = json.loads(row["value"])
+            if not active:
+                if action not in {'liked', 'saved'}:
+                    raise ValueError('Only likes and saves are reversible')
+                cursor = db.execute('DELETE FROM interactions WHERE profile_id=? AND article_id=? AND action=?',
+                                    (profile_id, article_id, action))
+                return cursor.rowcount > 0
             cursor = db.execute("INSERT OR IGNORE INTO interactions VALUES(?,?,?,?,?)",
                                 (profile_id, article_id, action, json.dumps(article["topics"]), utc_now().isoformat()))
             return cursor.rowcount > 0
+
+    def engagement(self, profile_id, article_id):
+        with self.connect() as db:
+            actions = {row['action'] for row in db.execute('SELECT action FROM interactions WHERE profile_id=? AND article_id=?',
+                                                          (profile_id, article_id))}
+        return {'article_id': article_id, 'liked': 'liked' in actions, 'saved': 'saved' in actions,
+                'like_count': int('liked' in actions), 'like_count_scope': 'your_local_reader'}
+
+    def reading_list(self, profile_id):
+        result = []
+        for event in self.events(profile_id):
+            if event['action'] != 'saved':
+                continue
+            with self.connect() as db:
+                row = db.execute("SELECT editions.id,value FROM editions JOIN json_each(editions.snapshot,'$.articles') "
+                    "WHERE profile_id=? AND json_extract(value,'$.id')=? ORDER BY local_date DESC,version DESC LIMIT 1",
+                    (profile_id, event['article_id'])).fetchone()
+            if row:
+                result.append({'edition_id': row['id'], 'article': json.loads(row['value']),
+                               **self.engagement(profile_id, event['article_id'])})
+        return result
+
+    def image_enrichment(self, article_id, article_url, now):
+        with self.connect() as db:
+            row = db.execute('SELECT metadata FROM article_image_enrichment WHERE article_id=? AND article_url=? AND expires_at>?',
+                             (article_id, article_url, now)).fetchone()
+        return json.loads(row['metadata']) if row else None
+
+    def save_image_enrichment(self, article, metadata, expires_at):
+        with self.connect() as db:
+            db.execute('INSERT INTO article_image_enrichment VALUES(?,?,?,?) ON CONFLICT(article_id,article_url) '
+                'DO UPDATE SET metadata=excluded.metadata,expires_at=excluded.expires_at',
+                (article['id'], article['url'], json.dumps(metadata), expires_at))
 
     def reset_feedback(self, profile_id):
         with self.connect() as db:

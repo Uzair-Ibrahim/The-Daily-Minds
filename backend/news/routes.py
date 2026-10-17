@@ -1,5 +1,6 @@
 import asyncio
 import sqlite3
+from pathlib import Path
 
 from fastapi import APIRouter, Header, HTTPException, Response
 
@@ -7,12 +8,18 @@ from backend.news.models import ProfileInput, GenerateInput, InteractionInput, T
 from backend.news.pdf import render_pdf, edition_html
 from backend.news.service import NoLiveNews
 from backend.news.images import ImageDelivery
+from backend.news.image_resolver import ArticleImageResolver
+from backend.news.editorial import primary_topic
 
 
 def create_news_router(paper):
     router = APIRouter(prefix="/api")
     pdf_lock = asyncio.Semaphore(1)
     images = ImageDelivery()
+    images.cache_dir = Path(paper.store.path).parent / 'publisher-images'
+    images.cache_dir.mkdir(parents=True, exist_ok=True)
+    resolver = ArticleImageResolver(paper.store, images)
+    paper.image_delivery, paper.image_resolver = images, resolver
 
     def identify(value):
         try:
@@ -58,6 +65,10 @@ def create_news_router(paper):
     async def archive(x_reader_id: str | None = Header(default=None)):
         return paper.store.archive(identify(x_reader_id))
 
+    @router.get('/reading-list')
+    async def reading_list(x_reader_id: str | None = Header(default=None)):
+        return paper.store.reading_list(identify(x_reader_id))
+
     def get_edition(edition_id, header):
         try:
             return paper.store.edition(identify(header), edition_id)
@@ -68,7 +79,9 @@ def create_news_router(paper):
     async def edition(edition_id: str, x_reader_id: str | None = Header(default=None)):
         value = get_edition(edition_id, x_reader_id)
         actions = paper.store.events(identify(x_reader_id))
-        return {**value, "reader_actions": [{"article_id": event["article_id"], "action": event["action"]} for event in actions]}
+        return {**value, 'article_sections': {item['id']: primary_topic(item) for item in value['articles']},
+                'article_engagement': {item['id']: paper.store.engagement(identify(x_reader_id), item['id']) for item in value['articles']},
+                "reader_actions": [{"article_id": event["article_id"], "action": event["action"]} for event in actions]}
 
     @router.get("/editions/{edition_id}/print")
     async def print_view(edition_id: str, x_reader_id: str | None = Header(default=None)):
@@ -79,6 +92,10 @@ def create_news_router(paper):
         value = get_edition(edition_id, x_reader_id)
         try:
             async with pdf_lock:
+                if value['articles']:
+                    lead = value['articles'][0]
+                    metadata = await resolver.resolve(lead)
+                    value = {**value, 'articles': [{**lead, **metadata}, *value['articles'][1:]]}
                 content = await render_pdf(value, image_loader=images)
             return Response(content, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="daily-mind-{value["local_date"]}-v{value["version"]}.pdf"'})
         except Exception:
@@ -90,19 +107,32 @@ def create_news_router(paper):
         article = next((item for item in value['articles'] if item['id'] == article_id), None)
         if not article:
             raise HTTPException(404, 'Article not found in this edition.')
-        content = await images.get(article.get('image_url'))
+        metadata = await resolver.resolve(article)
+        content = resolver.ready_images.get(metadata.get('image_url')) or await images.get(metadata.get('image_url'))
         if not content:
             return Response(status_code=204, headers={'Cache-Control': 'private, max-age=60', 'Vary': 'X-Reader-ID'})
         return Response(content, media_type='image/jpeg', headers={
             'Cache-Control': 'private, max-age=86400', 'Vary': 'X-Reader-ID', 'X-Content-Type-Options': 'nosniff'})
 
+    @router.get('/editions/{edition_id}/articles/{article_id}/image/metadata')
+    async def image_metadata(edition_id: str, article_id: str, x_reader_id: str | None = Header(default=None)):
+        value = get_edition(edition_id, x_reader_id)
+        article = next((item for item in value['articles'] if item['id'] == article_id), None)
+        if not article:
+            raise HTTPException(404, 'Article not found in this edition.')
+        return await resolver.resolve(article)
+
     @router.post("/articles/{article_id}/interactions")
     async def interact(article_id: str, body: InteractionInput, x_reader_id: str | None = Header(default=None)):
         profile_id = identify(x_reader_id)
         try:
-            changed = paper.store.interact(profile_id, article_id, body.action)
+            changed = paper.store.interact(profile_id, article_id, body.action, body.active)
         except KeyError:
             raise HTTPException(404, "Article not found in your saved editions.")
-        return {"recorded": changed, "weights": paper.dna(profile_id)}
+        except ValueError:
+            raise HTTPException(422, 'Only likes and saves can be removed.')
+        return {"recorded": changed, "weights": paper.dna(profile_id),
+                'engagement': paper.store.engagement(profile_id, article_id),
+                'active': body.active}
 
     return router
