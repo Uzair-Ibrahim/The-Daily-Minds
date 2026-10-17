@@ -1,5 +1,17 @@
 # API contract
 
+## Optional account identity
+
+All private newspaper endpoints accept a verified Supabase bearer access token, or
+`X-Reader-ID` for unclaimed guests. A bearer token always determines the reader on
+the server; changing reader headers or query parameters cannot switch accounts.
+Guest requests to an account-mapped reader return 401, even with auth disabled.
+`GET /api/auth/config` exposes only enabled/public provider configuration;
+`GET /api/auth/me` requires a valid token and returns its mapped `reader_id`.
+Invalid/expired tokens return 401; auth discovery/configuration outages return 503.
+Private APIs now use `Cache-Control: no-store` and `Vary: Authorization, X-Reader-ID`.
+See [auth configuration](SUPABASE_AUTH.md).
+
 ## Image/engagement feature additions
 
 `POST /api/articles/{article_id}/interactions` accepts `active` (default true, preserving
@@ -13,17 +25,17 @@ and the requested `active` state. `engagement.like_count` is a persisted local-r
 stored `articles` unchanged. Image metadata does not mutate historical editions:
 `GET /api/editions/{id}/articles/{article_id}/image/metadata` returns separately cached
 resolution metadata. The existing image-byte endpoint and PDF use that same enrichment.
-All these routes require the existing `X-Reader-ID` scope. No arbitrary proxy URL is accepted.
+All these routes require the resolved account or guest reader scope. No arbitrary proxy URL is accepted.
 
 ## Editorial image delivery
 
 New article snapshots optionally include `image_url`, `image_origin` and `image_credit`.
 Missing fields in older snapshots are supported without migration or refetching.
-`GET /api/editions/{edition_id}/articles/{article_id}/image` requires `X-Reader-ID`
+`GET /api/editions/{edition_id}/articles/{article_id}/image` requires a verified account token or guest `X-Reader-ID`
 and resolves only that reader's saved edition/article. It does not accept a URL query.
 Returns validated, resized JPEG bytes (200) or an empty unavailable response (204);
 invalid reader IDs return 400 and unavailable/inaccessible snapshots return 404.
-Responses use private caching and `Vary: X-Reader-ID`. The frontend loads a same-origin
+Responses disable browser caching and use `Vary: Authorization, X-Reader-ID`. The frontend loads a same-origin
 blob with its existing reader header and falls back on any failure. Images are optional
 and image delivery never changes edition snapshots or reruns discovery.
 

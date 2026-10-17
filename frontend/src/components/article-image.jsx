@@ -1,3 +1,4 @@
+import { requestHeaders } from '../auth-client';
 import React, { useEffect, useRef, useState } from 'react';
 
 export function ArticleImage({ article, editionID, readerID, section, lead }) {
@@ -20,7 +21,7 @@ export function ArticleImage({ article, editionID, readerID, section, lead }) {
     const timer = setTimeout(() => controller.abort(), 22000);
     setPicture(''); setState('loading');
     const path = `/api/editions/${encodeURIComponent(editionID)}/articles/${encodeURIComponent(article.id)}/image`;
-    const options = {headers:{'X-Reader-ID':readerID}, signal:controller.signal};
+    const options = {headers:requestHeaders(), signal:controller.signal};
     (async () => {
       try {
         const details = await fetch(path + '/metadata', options);

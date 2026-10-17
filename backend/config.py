@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ROOT / ".env", extra="ignore")
 
+    supabase_auth_enabled: bool = False
+    supabase_url: str = ""
+    supabase_publishable_key: str = ""
+
     search_provider: Literal["exa", "tavily"] = "exa"
     exa_api_key: SecretStr = SecretStr("")
     tavily_api_key: SecretStr = SecretStr("")

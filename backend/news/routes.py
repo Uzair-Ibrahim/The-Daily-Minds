@@ -2,7 +2,7 @@ import asyncio
 import sqlite3
 from pathlib import Path
 
-from fastapi import APIRouter, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from backend.news.models import ProfileInput, GenerateInput, InteractionInput, TOPICS, reader_id
 from backend.news.pdf import render_pdf, edition_html
@@ -13,7 +13,9 @@ from backend.news.editorial import primary_topic
 from backend.news.story_graph import StoryDetail, StoryUpdates, FollowInput
 
 
-def create_news_router(paper):
+def create_news_router(paper, auth=None):
+    from backend.auth import ReaderAuth
+    auth = auth or ReaderAuth(paper.settings, paper.store)
     router = APIRouter(prefix="/api")
     pdf_lock = asyncio.Semaphore(1)
     images = ImageDelivery()
@@ -33,44 +35,44 @@ def create_news_router(paper):
         return [{"id": key, "label": info["label"]} for key, info in TOPICS.items()]
 
     @router.get("/stories/updates", response_model=StoryUpdates)
-    async def story_updates(x_reader_id: str | None = Header(default=None)):
+    async def story_updates(x_reader_id: str = Depends(auth.reader)):
         reader = identify(x_reader_id)
         return paper.stories.updates(reader, paper.stories.cutoff(reader))
 
     @router.get("/stories/{story_id}", response_model=StoryDetail)
-    async def story_detail(story_id: str, x_reader_id: str | None = Header(default=None)):
+    async def story_detail(story_id: str, x_reader_id: str = Depends(auth.reader)):
         try:
             return paper.stories.detail(identify(x_reader_id), reader_id(story_id))
         except (KeyError, ValueError):
             raise HTTPException(404, "Story not found for this reader.")
 
     @router.put("/stories/{story_id}/follow", response_model=StoryDetail)
-    async def follow_story(story_id: str, body: FollowInput, x_reader_id: str | None = Header(default=None)):
+    async def follow_story(story_id: str, body: FollowInput, x_reader_id: str = Depends(auth.reader)):
         try:
             return paper.stories.follow(identify(x_reader_id), reader_id(story_id), body.followed)
         except (KeyError, ValueError):
             raise HTTPException(404, "Story not found for this reader.")
 
     @router.get("/profile")
-    async def profile(x_reader_id: str | None = Header(default=None)):
+    async def profile(x_reader_id: str = Depends(auth.reader)):
         return paper.profile(identify(x_reader_id))
 
     @router.put("/profile")
-    async def update_profile(body: ProfileInput, x_reader_id: str | None = Header(default=None)):
+    async def update_profile(body: ProfileInput, x_reader_id: str = Depends(auth.reader)):
         return paper.store.save_profile(identify(x_reader_id), body)
 
     @router.get("/profile/interests")
-    async def interests(x_reader_id: str | None = Header(default=None)):
+    async def interests(x_reader_id: str = Depends(auth.reader)):
         return {"weights": paper.dna(identify(x_reader_id)), "method": "Explicit interests + bounded feedback. Heuristic ranking, not a confidence estimate."}
 
     @router.post("/profile/reset-feedback")
-    async def reset(x_reader_id: str | None = Header(default=None)):
+    async def reset(x_reader_id: str = Depends(auth.reader)):
         profile_id = identify(x_reader_id)
         paper.store.reset_feedback(profile_id)
         return {"weights": paper.dna(profile_id), "message": "Feedback reset. Saved editions remain unchanged."}
 
     @router.post("/editions/generate")
-    async def generate(body: GenerateInput, x_reader_id: str | None = Header(default=None)):
+    async def generate(body: GenerateInput, x_reader_id: str = Depends(auth.reader)):
         try:
             async with asyncio.timeout(75):
                 return await paper.generate(identify(x_reader_id), body.regenerate, body.targeted_search)
@@ -82,11 +84,11 @@ def create_news_router(paper):
             raise HTTPException(503, "Local storage is temporarily busy. Try again shortly.")
 
     @router.get("/editions")
-    async def archive(x_reader_id: str | None = Header(default=None)):
+    async def archive(x_reader_id: str = Depends(auth.reader)):
         return paper.store.archive(identify(x_reader_id))
 
     @router.get('/reading-list')
-    async def reading_list(x_reader_id: str | None = Header(default=None)):
+    async def reading_list(x_reader_id: str = Depends(auth.reader)):
         return paper.store.reading_list(identify(x_reader_id))
 
     def get_edition(edition_id, header):
@@ -96,7 +98,7 @@ def create_news_router(paper):
             raise HTTPException(404, "Saved edition not found for this reader.")
 
     @router.get("/editions/{edition_id}")
-    async def edition(edition_id: str, x_reader_id: str | None = Header(default=None)):
+    async def edition(edition_id: str, x_reader_id: str = Depends(auth.reader)):
         value = get_edition(edition_id, x_reader_id)
         actions = paper.store.events(identify(x_reader_id))
         return {**value, 'article_sections': {item['id']: primary_topic(item) for item in value['articles']},
@@ -104,11 +106,11 @@ def create_news_router(paper):
                 "reader_actions": [{"article_id": event["article_id"], "action": event["action"]} for event in actions]}
 
     @router.get("/editions/{edition_id}/print")
-    async def print_view(edition_id: str, x_reader_id: str | None = Header(default=None)):
+    async def print_view(edition_id: str, x_reader_id: str = Depends(auth.reader)):
         return Response(edition_html(get_edition(edition_id, x_reader_id)), media_type="text/html")
 
     @router.get("/editions/{edition_id}/pdf")
-    async def pdf(edition_id: str, x_reader_id: str | None = Header(default=None)):
+    async def pdf(edition_id: str, x_reader_id: str = Depends(auth.reader)):
         value = get_edition(edition_id, x_reader_id)
         try:
             async with pdf_lock:
@@ -122,7 +124,7 @@ def create_news_router(paper):
             raise HTTPException(503, "PDF renderer unavailable. Run python -m playwright install chromium locally, then retry.")
 
     @router.get('/editions/{edition_id}/articles/{article_id}/image')
-    async def article_image(edition_id: str, article_id: str, x_reader_id: str | None = Header(default=None)):
+    async def article_image(edition_id: str, article_id: str, x_reader_id: str = Depends(auth.reader)):
         value = get_edition(edition_id, x_reader_id)
         article = next((item for item in value['articles'] if item['id'] == article_id), None)
         if not article:
@@ -130,12 +132,12 @@ def create_news_router(paper):
         metadata = await resolver.resolve(article)
         content = resolver.ready_images.get(metadata.get('image_url')) or await images.get(metadata.get('image_url'))
         if not content:
-            return Response(status_code=204, headers={'Cache-Control': 'private, max-age=60', 'Vary': 'X-Reader-ID'})
+            return Response(status_code=204, headers={'Cache-Control': 'private, max-age=60', 'Vary': 'Authorization, X-Reader-ID'})
         return Response(content, media_type='image/jpeg', headers={
-            'Cache-Control': 'private, max-age=86400', 'Vary': 'X-Reader-ID', 'X-Content-Type-Options': 'nosniff'})
+            'Cache-Control': 'private, max-age=86400', 'Vary': 'Authorization, X-Reader-ID', 'X-Content-Type-Options': 'nosniff'})
 
     @router.get('/editions/{edition_id}/articles/{article_id}/image/metadata')
-    async def image_metadata(edition_id: str, article_id: str, x_reader_id: str | None = Header(default=None)):
+    async def image_metadata(edition_id: str, article_id: str, x_reader_id: str = Depends(auth.reader)):
         value = get_edition(edition_id, x_reader_id)
         article = next((item for item in value['articles'] if item['id'] == article_id), None)
         if not article:
@@ -143,7 +145,7 @@ def create_news_router(paper):
         return await resolver.resolve(article)
 
     @router.post("/articles/{article_id}/interactions")
-    async def interact(article_id: str, body: InteractionInput, x_reader_id: str | None = Header(default=None)):
+    async def interact(article_id: str, body: InteractionInput, x_reader_id: str = Depends(auth.reader)):
         profile_id = identify(x_reader_id)
         try:
             changed = paper.store.interact(profile_id, article_id, body.action, body.active)

@@ -163,7 +163,7 @@ async def test_image_endpoint_scopes_snapshot_and_returns_clean_fallback(news_se
         assert (await client.get(path, headers={'X-Reader-ID': str(uuid4())})).status_code == 404
         response = await client.get(path, headers={'X-Reader-ID': reader})
         assert response.status_code == 200 and response.headers['content-type'] == 'image/jpeg'
-        assert response.headers['vary'] == 'X-Reader-ID'
+        assert set(response.headers['vary'].split(', ')) == {'X-Reader-ID', 'Authorization'}
         assert calls == [URL]
         missing = path.replace(edition['articles'][0]['id'], 'not-in-edition')
         assert (await client.get(missing, headers={'X-Reader-ID': reader})).status_code == 404

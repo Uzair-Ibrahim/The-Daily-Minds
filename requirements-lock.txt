@@ -65,7 +65,7 @@ pydantic-settings==2.16.0
 pydantic_core==2.50.1
 pyee==14.0.0
 Pygments==2.21.0
-PyJWT==2.15.1
+PyJWT[crypto]==2.15.1
 pypdf==6.21.0
 pypdfium2==5.14.0
 pyperclip==1.11.0

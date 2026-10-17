@@ -47,6 +47,28 @@ serve `frontend/dist`. `/docs` exposes all APIs. Ctrl+C stops the server.
 For frontend development, run `npm.cmd run dev` from `frontend` in another terminal;
 Vite proxies `/api` to port 8000. Rebuild for the single-server demonstration.
 
+## Optional reader accounts (Supabase Free)
+
+Guest Mode remains the default. Optional email/password signup, signin and signout
+use the official Supabase SDK with persistent sessions. FastAPI verifies asymmetric
+access-token signatures, issuer, audience and expiration, then resolves the account's
+private SQLite reader profile. Guest profiles are preserved separately; there is no
+silent migration. An expired/unavailable account session never silently becomes a guest.
+
+In your checkout's ignored `.env`, configure `SUPABASE_AUTH_ENABLED=true`,
+`SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (modern `sb_publishable_...` key).
+Use an active ES256/RS256 signing key in Supabase; legacy HS256 is not accepted.
+No service-role secret, database migration, billing activation or paid service is needed.
+Only the publishable auth key is sent to the browser. Other provider keys stay server-only.
+Leave auth disabled for an offline-capable guest demo.
+
+Follow [configuration and security details](docs/SUPABASE_AUTH.md), including Free-plan
+email restrictions and manual email confirmation. Install Python dependencies as above,
+run `npm.cmd ci` in `frontend`, rebuild and restart the backend after configuration.
+`python scripts/auth_browser_smoke.py` runs isolated Chromium/security/PDF checks with
+mocked Supabase; it does not claim a live-provider signup. Actual results are in
+[the auth implementation report](AUTH_IMPLEMENTATION_REPORT.md).
+
 ## Real CLI news, through MCP
 
 ```powershell
@@ -89,7 +111,7 @@ The optional API `targeted_search=true` can supplement RSS through the preserved
 Exa/Tavily adapter only when that guard and selected key are set. Quota/auth/network
 failure retains RSS with explicit warnings. Never activate billing to make it work.
 Restart the server after env changes. `.env`, runtime SQLite, checkpoints and artifacts
-are ignored. Keys are server-only and never included in the frontend.
+are ignored. Search/model keys are server-only. Only the optional Supabase publishable key is exposed to the frontend.
 
 ## Product behavior
 

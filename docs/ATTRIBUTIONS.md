@@ -62,3 +62,5 @@ Implementation references checked:
 - https://docs.tavily.com/documentation/api-reference/endpoint/search
 - https://help.tavily.com/articles/4840311948-tavily-search-api
 - https://github.com/modelcontextprotocol/inspector
+
+Optional authentication uses the official [`@supabase/supabase-js`](https://github.com/supabase/supabase-js) SDK (MIT) and [PyJWT](https://github.com/jpadilla/pyjwt) (MIT), with cryptography for asymmetric JWT verification.
