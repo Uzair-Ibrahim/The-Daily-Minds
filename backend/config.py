@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     daily_generation_interval_seconds: int = Field(default=60, ge=1, le=3600)
     daily_generation_retry_seconds: int = Field(default=300, ge=1, le=3600)
     offline_news_max_age_days: int = Field(default=7, ge=1, le=30)
+    story_semantic_enabled: bool = True
+    story_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    story_model_cache: str = str(Path.home() / ".cache" / "daily-mind-models")
+    story_similarity_threshold: float = Field(default=0.68, ge=0, le=1)
 
     @property
     def search_configured(self) -> bool:

@@ -10,6 +10,7 @@ from backend.news.ranking import interest_dna, rank_articles
 from backend.news.store import Store
 from backend.services.provenance import utc_now
 from backend.news.memory import build_takeaways
+from backend.news.story_graph import StoryGraph
 
 
 class NoLiveNews(Exception):
@@ -22,6 +23,7 @@ class Newspaper:
         self.settings = settings
         self.store = store or Store(settings.database_path)
         self.discovery = discovery or NewsDiscovery(settings)
+        self.stories = StoryGraph(self.store, settings)
         self.locks = {}
 
     def profile(self, profile_id):
@@ -93,7 +95,14 @@ class Newspaper:
             raise NoLiveNews(result["warnings"])
         self.store.articles(result["articles"])
         events = self.store.events(profile_id)
-        ranked = rank_articles(result["articles"], profile, events, now)
+        cutoff = self.stories.cutoff(profile_id)
+        story_ids = {}
+        try:
+            story_ids = await asyncio.to_thread(self.stories.ingest, profile_id, result["articles"])
+        except Exception:
+            result["warnings"].append("Story memory unavailable; standard newspaper ranking preserved.")
+        ranked = rank_articles(result["articles"], profile, events, now,
+                               story_ids, self.stories.followed(profile_id), self.stories.seen_articles(profile_id))
         selected = ranked[:profile["edition_length"]]
         if profile["depth"] == "brief":
             selected = [{**item, "description": item["description"][:180]} for item in selected]
@@ -110,4 +119,10 @@ class Newspaper:
             "warnings": result["warnings"] + ["Attributed feed descriptions/excerpts, not LLM-written reporting. Retrieval time does not prove publication recency."],
             "takeaways": build_takeaways(selected), "takeaway_method": "extractive_sentences_v1",
         }
+        try:
+            snapshot["continuing_stories"] = self.stories.snapshot(profile_id, [story_ids[a["id"]] for a in selected if a["id"] in story_ids])
+            snapshot["story_updates"] = self.stories.updates(profile_id, cutoff).model_dump(mode="json")
+            snapshot["story_method"] = self.stories.embeddings.status
+        except Exception:
+            snapshot["warnings"].append("Story timeline unavailable for this edition.")
         return self.store.save_edition(profile_id, local_date, snapshot, regenerate)

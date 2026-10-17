@@ -1,0 +1,16 @@
+[
+  {"a":"Aurora satellite mission enters lunar orbit", "b":"Aurora satellite mission reaches lunar orbit", "same":true},
+  {"a":"Aurora satellite mission enters lunar orbit", "b":"Aurora satellite mission sends lunar orbit images", "same":true},
+  {"a":"Senate approves Aurora satellite mission funding", "b":"Aurora satellite mission funding approved by Senate", "same":true},
+  {"a":"Karachi coastal bridge repair plan announced", "b":"Karachi coastal bridge repair plan revised", "same":true},
+  {"a":"OpenAI launches GPT-5 language model", "b":"Google launches Gemini language model", "same":false},
+  {"a":"Karachi factory fire on 12 October", "b":"Karachi factory fire on 15 October", "same":false},
+  {"a":"Aurora satellite mission enters lunar orbit", "b":"Borealis satellite mission enters Mars orbit", "same":false},
+  {"a":"Science news", "b":"Science news", "same":false},
+  {"a":"Aurora satellite mission enters lunar orbit", "b":"Aurora satellite mission enters lunar orbit", "same":false,"days":30},
+  {"a":"Aurora satellite mission enters lunar orbit", "b":"Aurora satellite mission reaches lunar orbit", "same":true,"missing_date":true},
+  {"a":"Aurora satellite mission enters lunar orbit", "b":"Aurora satellite mission reaches lunar orbit", "same":true,"days":-2},
+  {"a":"Aurora satellite mission launch postponed", "b":"Aurora satellite mission launch proceeding", "same":true},
+  {"a":"Publisher original satellite headline", "b":"Publisher corrected satellite headline", "same":true,"same_url":true},
+  {"a":"Karachi coastal bridge repair plan announced", "b":"Lahore coastal bridge repair plan announced", "same":false}
+]

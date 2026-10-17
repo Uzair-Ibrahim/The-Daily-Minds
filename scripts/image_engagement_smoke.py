@@ -34,7 +34,7 @@ async def main():
         daily_generation_enabled=False, exa_api_key='', tavily_api_key='', llm_api_key='', credit_search_confirmed_free=False)
     paper = Newspaper(settings)
     reader = str(uuid4())
-    profile = paper.store.save_profile(reader, ProfileInput(topics={'science':2,'world':1},edition_length=4))
+    profile = paper.store.save_profile(reader, ProfileInput(topics={'science':2,'world':1},edition_length=8))
     began = perf_counter()
     result = await paper.discovery.retrieve('climate')
     paper.store.articles(result['articles'])
@@ -48,12 +48,14 @@ async def main():
         dawn = rank_articles(feed_items[:1],profile,[])[0]
     secondary = next(item for item in ranked if item['id'] != dawn['id'] and item.get('image_url'))
     missing = next(item for item in ranked if not item.get('image_url') and 'news.google.com' in item['url'])
-    fourth = next(item for item in ranked if item['id'] not in {dawn['id'],secondary['id'],missing['id']})
+    photo_tail = [item for item in ranked if item.get('image_url') and item['id'] not in {dawn['id'],secondary['id'],missing['id']}][:5]
+    assert len(photo_tail)==5, 'Not enough real image-bearing articles for the all-story regression'
+    selection = [dawn,secondary,missing,*photo_tail]
     # Reproduce the actual legacy bug: metadata absent in a snapshot of real retrieved news.
     dawn = {key:value for key,value in dawn.items() if not key.startswith('image_')}
     edition = {'title':'The Daily Mind','profile_id':reader,'local_date':profile['updated_at'][:10],
         'timezone':profile['timezone'],'generated_at':profile['updated_at'],'status':'retrieved_live',
-        'articles':[dawn,secondary,missing,fourth],'article_count':4,'source_count':len({item['source'] for item in [dawn,secondary,missing,fourth]}),
+        'articles':selection,'article_count':8,'source_count':len({item['source'] for item in selection}),
         'profile_snapshot':profile,'interest_dna':paper.dna(reader),'warnings':['QA selection from actual retrieved RSS; lead reproduces absent historical image fields.'],
         'takeaways':[], 'mode':'attributed_excerpts'}
     edition = paper.store.save_edition(reader,edition['local_date'],edition,False)
@@ -82,6 +84,16 @@ async def main():
                     assert 'SCIENCE' in (await page.locator('.article-0 .article-kicker').inner_text()).upper()
                     assert await page.locator('.article-0 img').evaluate('(img)=>img.complete && img.naturalWidth>=160')
                     assert await page.locator('.article-2 .editorial-image-frame').evaluate('(el)=>el.getBoundingClientRect().height')<80
+                    await page.locator('.article-3').scroll_into_view_if_needed()
+                    await page.locator('.article-3 .editorial-image-frame.ready img').wait_for(timeout=30000)
+                    report['fourth_story_real_image_visible'] = True
+                    report['all_article_image_frames'] = await page.locator('.article-card .editorial-image').count()
+                    assert report['all_article_image_frames']==8
+                    report['lower_story_photos_verified'] = []
+                    for index in range(3,8):
+                        await page.locator(f'.article-{index}').scroll_into_view_if_needed()
+                        await page.locator(f'.article-{index} .editorial-image-frame.ready img').wait_for(timeout=30000)
+                        report['lower_story_photos_verified'].append(index+1)
                     await page.locator('.article-0').scroll_into_view_if_needed()
                     await page.screenshot(path=str(ART/'engagement-dawn-hero.png'),full_page=True)
                     report['dawn_browser_photo_visible']=True

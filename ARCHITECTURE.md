@@ -1,5 +1,50 @@
 # The Daily Mind — architecture
 
+Living Story Graph is now implemented in this checkout. It ingests a reader's retrieved
+candidate articles before ranking and saves continuing-story evidence in future edition
+snapshots. Existing editions are never backfilled or rewritten.
+
+```mermaid
+flowchart LR
+    RSS[Normalized RSS articles] --> Embed[Lazy local CPU MiniLM embeddings]
+    Embed --> Cache[(SQLite embedding cache)]
+    RSS --> Hybrid[Conservative headline/entity/number/time gates]
+    Embed --> Hybrid
+    Hybrid --> Stories[(Reader-scoped clusters and immutable source observations)]
+    Stories --> Follow[Explicit reader story follows]
+    Follow --> Rank[Bounded ranking bonus and repetition penalty]
+    RSS --> Rank
+    Rank --> Snapshot[New immutable edition snapshot]
+    Stories --> Snapshot
+    Snapshot --> Web[React continuing stories]
+    Snapshot --> PDF[Matching print HTML and PDF]
+    Stories --> API[Reader-scoped detail and follow API]
+    API --> Timeline[Expandable accessible timeline]
+```
+
+The semantic dependency is optional (`pip install -e ".[stories]"`); download the free
+model once with `python scripts/setup_story_model.py`. Runtime uses only cached local
+weights and CPU inference, never hosted inference. Model failures retain conservative
+deterministic matching. Similarity is a candidate signal, not verification. Distinct
+numbers, disjoint headline name cues and publication gaps over 14 days reject matches;
+strong lexical overlap can match without a model. Cross-URL connections are labeled
+possible, including cases where dates or sufficient source context are missing.
+
+`story_graph.py` owns additive tables with reader scoping, foreign keys and idempotent
+content fingerprints. Its candidate history is bounded to 300 recent observations;
+detail exposes the latest 150 observations in retrieval chronology. URL membership is
+looked up durably outside that candidate bound. Embeddings use normalized vectors,
+batched inference and persistent content/model-keyed caching. Edition snapshots retain
+at most three continuing stories with three observations each. Follow priority is +1.5,
+applies only to new article IDs and is capped to half an edition's boosted slots.
+Previously included article IDs from 30 recent editions get a repetition penalty.
+
+Publisher time and original retrieval time remain distinct. Source text differences
+are quoted and attributed; the system does not infer factual contradictions, corrections
+or event dates. A new observation with sparse evidence explicitly says it cannot
+determine what changed. Live timeline/follow state can evolve independently of saved
+edition and PDF content.
+
 ```mermaid
 flowchart TD
     Reader[React reader: onboarding, paper, archive, Interest DNA]

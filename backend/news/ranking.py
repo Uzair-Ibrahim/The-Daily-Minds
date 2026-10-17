@@ -25,10 +25,11 @@ def interest_dna(profile, events):
              "events": counts[key]} for key, info in TOPICS.items()]
 
 
-def rank_articles(articles, profile, events, now=None):
+def rank_articles(articles, profile, events, now=None, story_ids=None, followed_stories=None, seen_article_ids=None):
     now = now or utc_now()
     dna = {item["topic"]: item for item in interest_dna(profile, events)}
     seen = {event["article_id"] for event in events if event["action"] in {"opened", "skipped", "not_interested"}}
+    seen.update(seen_article_ids or [])
     candidates = []
     for article in articles:
         matches = [key for key in article.topics if key in dna]
@@ -48,6 +49,10 @@ def rank_articles(articles, profile, events, now=None):
         breakdown = {"interests": round(explicit, 3), "feedback": round(feedback, 3),
                      "custom_interests": keyword_score, "region": region, "recency": round(recency, 3), "previously_seen": repetition}
         reasons = ["Matches " + ", ".join(TOPICS[key]["label"] for key in matches)]
+        story_id = (story_ids or {}).get(article.id)
+        if story_id in (followed_stories or set()) and article.id not in seen:
+            breakdown["followed_story"] = 1.5
+            reasons.append("Prioritized because you follow this continuing story")
         if keywords:
             reasons.append("Custom interest: " + ", ".join(keywords))
         if region:
@@ -59,13 +64,23 @@ def rank_articles(articles, profile, events, now=None):
         elif age > 72:
             reasons.append("Older coverage; no recency bonus")
         if repetition:
-            reasons.append("Previously opened or skipped; reduced repetition")
+            reasons.append("Previously included, opened or skipped; reduced repetition")
         candidates.append({**article.model_dump(mode="json"), "breakdown": breakdown, "reasons": reasons,
                            "score": round(sum(breakdown.values()), 3)})
+        if story_id:
+            candidates[-1]["story_id"] = story_id
     ranked, source_counts = [], {}
+    boosted = 0
     while candidates:
+        if boosted >= max(1, profile.get('edition_length', 8) // 2):
+            for item in candidates:
+                bonus = item['breakdown'].pop('followed_story', 0)
+                if bonus:
+                    item['score'] = round(item['score'] - bonus, 3)
+                    item['reasons'].remove('Prioritized because you follow this continuing story')
         selected = max(candidates, key=lambda item: (item["score"] - source_counts.get(item["source"], 0), item["id"]))
         candidates.remove(selected)
+        boosted += bool(selected['breakdown'].get('followed_story'))
         penalty = -source_counts.get(selected["source"], 0)
         selected["breakdown"]["source_diversity"] = penalty
         selected["score"] = round(selected["score"] + penalty, 3)

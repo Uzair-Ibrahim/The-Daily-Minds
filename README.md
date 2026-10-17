@@ -112,8 +112,8 @@ for results, permissions caveats, shared files and integration notes.
 
 ### Editorial images
 
-New RSS editions retain publisher-provided image URLs and credits. The lead and first
-two secondary stories show images; later stories remain text-first. Missing/failed
+New RSS editions retain publisher-provided image URLs and credits. Every story position can show its publisher image. The lead is prominent; other
+stories use medium images and load as they approach the viewport. Missing/failed
 images use a labeled section treatment, without substitute photography. Older archived
 editions remain readable and are not retroactively changed.
 
@@ -242,3 +242,30 @@ Never fabricate commits, backdate work or claim this initial snapshot demonstrat
 incremental event development. Publication authorization does not establish eligibility.
 See [publication checks](docs/PUBLICATION.md) and
 [attribution and license information](docs/ATTRIBUTIONS.md).
+## Living Story Graph
+
+New editions now include reader-scoped story memory. Restart the backend after updating,
+then choose **Make a new edition**. Open **Living story · Explore timeline** on an article
+to view real source observations and follow/unfollow its continuing coverage. Existing
+saved editions keep their original content. Related coverage is explicitly uncertain,
+not independently fact-checked.
+
+Optional free CPU embeddings:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[stories]"
+.\.venv\Scripts\python.exe scripts/setup_story_model.py
+```
+
+Without local model weights, conservative deterministic story matching still works.
+For genuine RSS/browser/PDF proof, run `python scripts/living_story_demo.py`; replay a
+saved genuine capture with `--replay artifacts/living-story-rss.json`. See
+[implementation and actual verification](LIVING_STORY_IMPLEMENTATION_REPORT.md).
+
+## Integrated main preview
+
+The image/engagement feature and existing Living Story Graph are integrated in main.
+Open **http://127.0.0.1:8001** for the updated running application. All story positions
+now support real publisher images; unavailable images remain text-first. See
+[MAIN_INTEGRATION_REPORT.md](MAIN_INTEGRATION_REPORT.md) for actual combined test and
+real-browser results. No remote push was performed.

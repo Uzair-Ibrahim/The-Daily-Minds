@@ -1,6 +1,10 @@
 # Living Story Graph: scoped implementation plan
 
-Status: planned, not implemented. Daily generation and the supplied five-requirement
+Status: superseded by the implementation in `backend/news/story_graph.py` and
+`LIVING_STORY_IMPLEMENTATION_REPORT.md`. The original narrower plan below is retained
+as historical context; it is not the current feature specification.
+
+Daily generation and the supplied five-requirement
 audit are documented in DAILY_GENERATION_QA.md. Preserve those paths and their tests.
 
 ## One feature

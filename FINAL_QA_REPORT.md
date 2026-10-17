@@ -1,5 +1,16 @@
 # The Daily Mind — final product audit and QA
 
+Latest main integration: 183 passed, 1 optional skipped; production build and combined
+real-browser regression passed. The first-three-image limit is removed and genuine
+photos at story positions 4 through 8 were verified. See MAIN_INTEGRATION_REPORT.md.
+
+Living Story Graph follow-up (2026-10-17): **167 passed, 1 skipped in 113.18s**;
+production frontend build and genuine RSS / archived replay browser / PDF proof pass.
+Local CPU semantic embeddings, reader-scoped story persistence, follow ranking and
+continuing-story snapshots are now implemented. See
+[actual implementation and limits](LIVING_STORY_IMPLEMENTATION_REPORT.md). Earlier
+missing/planned feature statements below describe their historical audit dates.
+
 Latest image follow-up: **154 passed, 1 optional skipped in 77.53s**; Vite production
 build passed in 2.48s. Actual publisher images, desktop/mobile rendering, matching
 image-bearing PDF, missing/failed image fallback and the existing full browser journey

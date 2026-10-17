@@ -10,6 +10,7 @@ from backend.news.service import NoLiveNews
 from backend.news.images import ImageDelivery
 from backend.news.image_resolver import ArticleImageResolver
 from backend.news.editorial import primary_topic
+from backend.news.story_graph import StoryDetail, StoryUpdates, FollowInput
 
 
 def create_news_router(paper):
@@ -30,6 +31,25 @@ def create_news_router(paper):
     @router.get("/topics")
     async def topics():
         return [{"id": key, "label": info["label"]} for key, info in TOPICS.items()]
+
+    @router.get("/stories/updates", response_model=StoryUpdates)
+    async def story_updates(x_reader_id: str | None = Header(default=None)):
+        reader = identify(x_reader_id)
+        return paper.stories.updates(reader, paper.stories.cutoff(reader))
+
+    @router.get("/stories/{story_id}", response_model=StoryDetail)
+    async def story_detail(story_id: str, x_reader_id: str | None = Header(default=None)):
+        try:
+            return paper.stories.detail(identify(x_reader_id), reader_id(story_id))
+        except (KeyError, ValueError):
+            raise HTTPException(404, "Story not found for this reader.")
+
+    @router.put("/stories/{story_id}/follow", response_model=StoryDetail)
+    async def follow_story(story_id: str, body: FollowInput, x_reader_id: str | None = Header(default=None)):
+        try:
+            return paper.stories.follow(identify(x_reader_id), reader_id(story_id), body.followed)
+        except (KeyError, ValueError):
+            raise HTTPException(404, "Story not found for this reader.")
 
     @router.get("/profile")
     async def profile(x_reader_id: str | None = Header(default=None)):

@@ -5,6 +5,7 @@ import { Button } from './components/ui/button';
 import { EditorialMemory } from './components/editorial-memory';
 import { ArticleImage } from './components/article-image';
 import { ArticleEngagement } from './components/article-engagement';
+import { StoryTimeline, ContinuingStories } from './components/story-timeline';
 import './styles.css';
 
 function identity() {
@@ -161,6 +162,7 @@ function App() {
             <div className="paper-intro"><span className="eyebrow">THIS EDITION’S READING LIST</span><span>Selected for {Object.keys(edition.profile_snapshot.topics).slice(0, 3).map(t => labels[t]).join(', ')}</span></div>
             <div className="articles-grid">{edition.articles.map((article, index) => hidden[article.id] ? <div className="skipped-card" key={article.id}><Check size={18}/><p>Story skipped.<br/><span>Your next paper will learn from this.</span></p><button onClick={() => { setHidden(prev => ({ ...prev, [article.id]: false })); notify('Story shown again. Your feedback is still recorded.'); }}>Show story</button></div> : <ArticleCard key={article.id} editionID={edition.id} article={article} index={index} actions={actions} disabled={!!busy} onAction={interact} notify={notify}/>)}</div>
             <EditorialMemory edition={edition}/>
+            <ContinuingStories edition={edition}/>
             <div className="edition-notes"><Info size={15}/><p><strong>A note on your sources.</strong> These are attributed publisher excerpts, not AI-written reporting. Edition generated {new Date(edition.generated_at).toLocaleString('en-GB')}. Original retrieval times appear under “Why this story?”. Publication dates appear when provided; retrieval does not mean a story was published today. {edition.warnings.filter(w => !w.startsWith('Attributed')).join(' ')}</p></div>
           </section><div className="feedback-nudge"><Sparkles size={22}/><div><strong>Your next edition starts here.</strong><p>A like, save or skip helps shape tomorrow’s paper. See exactly how.</p></div><button onClick={() => { setView('dna'); notify('Your explainable Interest DNA opened.'); }}>Explore your Interest DNA <ArrowRight size={16}/></button></div>
         </> : <div className="empty-state"><Newspaper size={48}/><h2>Your first edition is waiting.</h2><p>We’ll gather real public news feeds and build a paper around your interests.<br/>No account. No paid APIs. Just a more thoughtful read.</p><Button disabled={!!busy} onClick={() => generate()}>Create my paper <ArrowRight size={17}/></Button>{archive.length > 0 && <button className="text-button" onClick={() => { setView('archive'); notify('Saved editions opened.'); }}>Read a saved edition instead</button>}</div>}
@@ -185,9 +187,10 @@ function ArticleCard({article, index, actions, disabled, onAction, editionID, no
     <div className="article-kicker"><span>{labels[article.primary_topic || article.topics[0]] || 'World affairs'}</span><span>{String(index + 1).padStart(2, '0')}</span></div>
     <h3><a href={article.url} target="_blank" rel="noopener noreferrer" onClick={() => onAction(article, 'opened')}>{article.title}</a></h3>
     <div className="byline"><span className="source-dot"/>{article.source}<span>·</span><span>{date ? date.toLocaleDateString('en-GB', {day:'numeric',month:'short'}) + (older ? ' · Older coverage' : '') : 'Publication date unknown'}</span></div>
-    {index < 3 && <ArticleImage article={article} editionID={editionID} readerID={readerID} section={labels[article.primary_topic || article.topics[0]] || 'World affairs'} lead={index === 0}/>}
+    <ArticleImage article={article} editionID={editionID} readerID={readerID} section={labels[article.primary_topic || article.topics[0]] || 'World affairs'} lead={index === 0}/>
     <p className="article-description">{article.description || 'No feed description supplied. Follow the original source for the full report.'}</p>
     <span className="excerpt-label">{viaGoogle ? 'GOOGLE NEWS RSS · PUBLISHER-LABELED HEADLINE / EXCERPT' : 'ATTRIBUTED PUBLISHER EXCERPT'}</span>
+    {article.story_id && <StoryTimeline key={article.story_id} storyID={article.story_id} api={api}/>}
     <div className="article-bottom"><a className="read-source" href={article.url} target="_blank" rel="noopener noreferrer" onClick={() => onAction(article, 'opened')}>{viaGoogle ? 'Open via Google News' : 'Read original'} <ArrowUpRight size={15}/></a><ArticleEngagement article={article} liked={liked} saved={saved} disabled={disabled} onAction={onAction} notify={notify}/></div>
     <details className="ranking-details"><summary>Why this story? <Sparkles size={12}/></summary><p>{article.reasons.join('. ')}.</p><div className="breakdown">{Object.entries(article.breakdown).map(([key,value]) => <span key={key}>{key.replaceAll('_',' ')} <b>{value > 0 ? '+' : ''}{value}</b></span>)}</div><p>Priority points are ranking heuristics, not confidence. Retrieved {new Date(article.retrieved_at).toLocaleString('en-GB')}.</p><button disabled={disabled || actions[article.id + ':not_interested']} onClick={() => onAction(article, 'not_interested')}>Not interested in this topic</button></details>
   </article>;
