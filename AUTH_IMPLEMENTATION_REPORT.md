@@ -46,9 +46,11 @@ local-demo capability model; it is not authenticated identity.
 
 ## Configuration and real-provider limitation
 
-No Supabase URL or publishable key was configured in the inspected local environment.
+At initial implementation, no Supabase URL or publishable key was configured.
+The owner subsequently supplied project configuration, which was stored only in
+the main checkout's ignored `.env`; see the live connection verification below.
 No real Supabase signup, email delivery or hosted refresh-session revocation is claimed.
-The real `.env` and existing provider credentials were not copied into this worktree.
+The real `.env` and existing provider credentials were not copied into the feature worktree.
 
 Configure only these variables privately in your chosen checkout's ignored `.env`:
 
@@ -167,3 +169,34 @@ Ignored local evidence:
 The owner subsequently authorized a normal Git commit, safe integration into main
 and publication to the existing GitHub remote. The implementation-time test results
 above are retained; publication is verified separately in the delivery response.
+
+## Follow-up: live project connection verification
+
+The owner supplied a Supabase project URL and publishable key. The existing app's
+`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_AUTH_ENABLED=true` were set
+privately in the main checkout's ignored `.env`, preserving all existing settings.
+No key was added to source code, `.env.example`, screenshots or Git history.
+
+Actual read-only live checks:
+
+- Supabase Auth settings: HTTP 200; email authentication and signup enabled;
+  email confirmation required.
+- Public JWKS discovery: HTTP 200; one ES256 signing key, compatible with the backend.
+- Running app at `http://127.0.0.1:8001`: auth configuration enabled and project matched.
+- Actual Chromium: live-project signin form displayed email/password fields;
+  zero uncaught browser errors. No signup request or email was sent.
+- Auth regression after configuration: `pytest tests/test_auth.py -q` ? 32 passed
+  in 16.46 seconds.
+- Official project-scoped Supabase MCP added to local Codex configuration;
+  official OAuth consent completed and CLI reported successful login.
+- REST root introspection returned HTTP 401, `Secret API key required`. No secret
+  key was requested and no table permissions were relaxed. This check does not
+  establish table-level access; no database schema/data query or migration was made.
+
+Application data remains in SQLite as required. Supabase supplies optional Auth;
+MCP supplies the requested development connection. This Vite/React app already uses
+`@supabase/supabase-js`; Next.js files, `NEXT_PUBLIC_` configuration and SSR middleware
+were not introduced. Browser refresh stays handled by the existing official SDK.
+
+Live signup, email delivery and signin with an actual reader still require the
+owner's own email confirmation in the webpage. They are not claimed as tested.
