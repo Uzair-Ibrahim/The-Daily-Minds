@@ -88,7 +88,7 @@ export function AuthRoom({ children }) {
       </>}</div>
     </aside>
     {message && <div className="auth-notice" role="status">{message}<button aria-label="Dismiss account message" onClick={() => setMessage('')}><X size={15}/></button></div>}
-    {mode === 'loading' ? <div className="auth-loading"><LoaderCircle className="spin"/> Opening your reading room…</div> : mode === 'locked' ? <main className="auth-locked"><h1>Return to your reading room.</h1><p>Your session expired or the account service is unavailable. Sign in again, or explicitly continue as guest. Your saved account editions remain in SQLite.</p></main> : React.cloneElement(children, { key: mode === 'account' ? session.user.id : 'guest', identityKey: mode === 'account' ? 'account:' + session.user.id : 'guest' })}
+    {mode === 'loading' ? <div className="auth-loading"><LoaderCircle className="spin"/> Opening your reading room…</div> : mode === 'locked' ? <main className="auth-locked"><h1>Return to your reading room.</h1><p>Your session expired or the account service is unavailable. Sign in again, or explicitly continue as guest. Your saved account editions are preserved.</p></main> : React.cloneElement(children, { key: mode === 'account' ? session.user.id : 'guest', identityKey: mode === 'account' ? 'account:' + session.user.id : 'guest' })}
     {form && <div className="auth-overlay"><section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <button className="auth-close" aria-label="Close account form" disabled={busy} onClick={() => { setForm(''); setPassword(''); }}><X/></button>
       <div className="eyebrow">THE DAILY MIND · READER ACCOUNT</div>

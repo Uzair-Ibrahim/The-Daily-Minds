@@ -155,3 +155,14 @@ That header is still anonymous local data partitioning, not production authentic
 PDF embeds the validated lead JPEG; its Chromium browser still blocks remote requests.
 Only metadata is persistent; in-memory image bytes are best effort and can disappear
 on restart. A publisher may change or remove an asset without altering our saved text.
+
+## Deployment storage modes
+
+Local mode retains SQLite. The owner selected Supabase Postgres for durable Render
+Free deployment. `DATABASE_BACKEND=postgres` selects a pooled, TLS-verified private
+`daily_mind` schema through the existing Store interface; all reader scoping and
+immutable snapshots remain unchanged. Transaction-scoped advisory locks preserve
+lease/edition/account allocation semantics across connections. App tables are not
+exposed through the public Supabase Data API. A missing cloud URL fails closed.
+Publisher image cache files remain disposable; source metadata and editions live in
+the database. The cloud deployment does not upload existing local private data.

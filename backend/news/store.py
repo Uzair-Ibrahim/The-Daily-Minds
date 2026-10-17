@@ -10,7 +10,9 @@ from backend.services.provenance import utc_now
 
 
 class Store:
-    def __init__(self, path: str):
+    def __init__(self, path: str, database_url="", schema="daily_mind"):
+        self.database_url, self.schema = database_url, schema
+        self._postgres_initialized = False
         self.path = path
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
@@ -31,12 +33,17 @@ class Store:
 
     @contextmanager
     def connect(self):
-        db = sqlite3.connect(self.path, timeout=10)
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA foreign_keys=ON")
+        if self.database_url:
+            from backend.news.postgres import Connection
+            db = Connection(self.database_url, self.schema, initialize=not self._postgres_initialized)
+        else:
+            db = sqlite3.connect(self.path, timeout=10)
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA foreign_keys=ON")
         try:
             yield db
             db.commit()
+            self._postgres_initialized = True
         except Exception:
             db.rollback()
             raise

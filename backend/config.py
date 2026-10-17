@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     live_cache_ttl_seconds: int = Field(default=180, ge=0, le=3600)
     log_level: str = "INFO"
     credit_search_confirmed_free: bool = False
+    database_backend: Literal["sqlite", "postgres"] = "sqlite"
+    database_url: SecretStr = SecretStr("")
+    database_schema: str = "daily_mind"
     database_path: str = str(ROOT / "data" / "daily_mind.sqlite3")
     daily_generation_enabled: bool = True
     daily_generation_interval_seconds: int = Field(default=60, ge=1, le=3600)

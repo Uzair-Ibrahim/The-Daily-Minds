@@ -21,7 +21,11 @@ class NoLiveNews(Exception):
 class Newspaper:
     def __init__(self, settings, store=None, discovery=None):
         self.settings = settings
-        self.store = store or Store(settings.database_path)
+        if settings.database_backend == "postgres" and not settings.database_url.get_secret_value():
+            raise ValueError("DATABASE_URL is required for Postgres; refusing temporary SQLite fallback.")
+        self.store = store or Store(settings.database_path,
+            database_url=settings.database_url.get_secret_value() if settings.database_backend == "postgres" else "",
+            schema=settings.database_schema)
         self.discovery = discovery or NewsDiscovery(settings)
         self.stories = StoryGraph(self.store, settings)
         self.locks = {}

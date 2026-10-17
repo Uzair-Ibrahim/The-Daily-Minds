@@ -291,3 +291,16 @@ Open **http://127.0.0.1:8001** for the updated running application. All story po
 now support real publisher images; unavailable images remain text-first. See
 [MAIN_INTEGRATION_REPORT.md](MAIN_INTEGRATION_REPORT.md) for actual combined test and
 real-browser results. No remote push was performed.
+
+## Free cloud deployment with durable data
+
+Local SQLite remains the default. The optional Render deployment uses a Free web
+service and the existing Supabase Free Postgres project so committed editions and
+reader profiles survive Render restarts. No paid disk is required. Use explicit
+`DATABASE_BACKEND=postgres` with a privately configured `DATABASE_URL`; missing cloud
+credentials fail closed instead of falling back to temporary SQLite. Existing local
+data is not migrated or uploaded automatically.
+
+See [deployment setup and actual verification](docs/RENDER_DEPLOYMENT.md). The
+Docker build includes Chromium for PDFs and disables optional CPU embeddings for
+Free-plan memory; Living Story headline matching remains available and labeled.

@@ -7,7 +7,7 @@ name = "nascon-ai-baseline"
 version = "0.1.0"
 description = "Evidence-backed CLI and API using a real local MCP search server"
 requires-python = ">=3.11"
-dependencies = ["PyJWT[crypto]>=2.10,<3", "fastmcp>=2.14,<4", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "httpcore>=1.0,<2", "pydantic-settings>=2.7,<3", "exa-py==2.25.0", "feedparser>=6,<7", "playwright>=1.50,<2", "tzdata>=2025.1", "pillow>=12,<14"]
+dependencies = ["psycopg[binary,pool]>=3.2,<4", "PyJWT[crypto]>=2.10,<3", "fastmcp>=2.14,<4", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "httpcore>=1.0,<2", "pydantic-settings>=2.7,<3", "exa-py==2.25.0", "feedparser>=6,<7", "playwright>=1.50,<2", "tzdata>=2025.1", "pillow>=12,<14"]
 
 [project.optional-dependencies]
 stories = ["sentence-transformers>=5,<6"]
@@ -20,3 +20,6 @@ include = ["backend*"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = ["integration: real local MCP subprocess; no internet required", "live: opt-in real provider test; requires credentials and network", "pdf: local Chromium PDF integration; install playwright chromium first"]
+
+[tool.setuptools.package-data]
+backend = ["certs/*.crt"]
