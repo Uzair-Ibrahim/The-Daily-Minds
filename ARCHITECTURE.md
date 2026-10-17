@@ -55,11 +55,11 @@ flowchart TD
     Normalize[Plain excerpts, safe URLs, UTC times, dedupe]
     Rank[Explainable relevance, recency, diversity, feedback]
     Memory[Extractive source sentences + labeled headline-only fallback]
-    DB[(SQLite: profiles, articles, events, immutable editions)]
+    DB[(SQLite local / Postgres cloud: profiles, events, immutable editions)]
     PDF[Local Chromium: shared edition snapshot to print HTML/PDF]
     CLI[CLI paper / ask / health]
     Scheduler[Local startup catch-up and periodic date checks]
-    Lease[SQLite reader/date lease and failure cooldown]
+    Lease[Reader/date lease and failure cooldown]
     Images[Bounded local publisher-CDN image loader and cache]
     Reader --> API
     Scheduler --> Lease

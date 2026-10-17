@@ -2,7 +2,8 @@
 
 Guest Mode needs neither a Supabase account nor internet access to Supabase.
 Authentication uses Supabase Auth only; application profiles, feedback, editions,
-archives, images and Living Stories remain in the existing local SQLite database.
+archives, images and Living Stories remain in local SQLite by default. The optional Render deployment uses durable
+Supabase Postgres through the same Store interface; see [cloud deployment](RENDER_DEPLOYMENT.md).
 
 ## Configure locally without sharing credentials
 

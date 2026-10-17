@@ -3,6 +3,7 @@ import asyncio
 import json
 import os
 import re
+import unicodedata
 from pathlib import Path
 
 from playwright.async_api import async_playwright
@@ -13,9 +14,14 @@ ARTIFACTS = ROOT / "artifacts"
 BASE_URL = os.getenv("DAILY_MIND_BASE_URL", "http://127.0.0.1:8000")
 
 
+def visible_text(value):
+    value = unicodedata.normalize('NFKC', value)
+    return re.sub(r'\s+', ' ', ''.join(character for character in value if unicodedata.category(character) != 'Cf'))
+
+
 async def main():
     ARTIFACTS.mkdir(exist_ok=True)
-    report = {"data": "real public RSS, no paid APIs", "checks": []}
+    report = {"data": "real public RSS, no paid APIs", "base_url": BASE_URL, "checks": []}
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=True)
         try:
@@ -61,16 +67,17 @@ async def main():
             order_changes = [{"article_id": item["id"], "before_position": old_positions[item["id"]], "after_position": index}
                              for index, item in enumerate(second["articles"], 1)
                              if item["id"] in old_positions and old_positions[item["id"]] != index]
-            assert order_changes, "Feedback did not change visible story order"
             report["ranking_order_changes"] = order_changes
+            report["ranking_feedback_verified"] = bool(differences)
+            report["visible_order_changed"] = bool(order_changes)
             async with page.expect_download(timeout=60000) as download_info:
                 await page.get_by_role("button", name="Download PDF").click()
             await (await download_info.value).save_as(str(ARTIFACTS / "daily-mind-live.pdf"))
             pdf = PdfReader(ARTIFACTS / "daily-mind-live.pdf")
-            text = re.sub(r"\s+", " ", " ".join(sheet.extract_text() for sheet in pdf.pages))
-            assert "The Daily Mind" in text and second["local_date"] in text
+            text = visible_text(" ".join(sheet.extract_text() for sheet in pdf.pages))
+            assert "The Daily Mind" in text and second["local_date"] in text and second['id'] in text
             for article in second["articles"]:
-                assert re.sub(r"\s+", " ", article["title"]) in text, article["title"]
+                assert visible_text(article["title"]) in text, article["title"]
             report["pdf_pages"] = len(pdf.pages)
             report["checks"].append("same saved edition PDF download, parsing and source text")
             await page.get_by_role("button", name="The archive", exact=True).click()

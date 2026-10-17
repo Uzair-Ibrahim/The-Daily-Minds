@@ -1,9 +1,13 @@
 # Render Free with durable Supabase storage
 
-Status before service creation: **no new service has been deployed yet**. The owner
-configured and verified the correct database password privately. Real Supabase
-Postgres regression tests now pass (10 passed in 61.00 seconds). No paid resource, persistent disk or temporary-data demo was
-created. The existing unrelated Render service was not modified.
+**Live:** https://the-daily-mind.onrender.com
+
+Render service `srv-db9n1vdg1s2s739anspg` is deployed on the verified **Free** plan.
+Deployment `dep-db9n1vtg1s2s739anu30` built and served commit
+`839b8a2bbba83728ad8c633dadf7ca428807630f`. The owner explicitly approved transferring
+only the database connection and Supabase Auth configuration to this service. No
+Exa/Tavily/LLM keys were transferred, no billing was activated, and the existing
+unrelated Render service was not modified. No local private database was uploaded.
 
 The official Render CLI 2.29.0 was installed with WinGet (`Render.CLI`) and its official
 browser login completed. Workspace selection is saved in the CLI's local configuration.
@@ -101,7 +105,9 @@ Auth Site URL/allowed redirects so confirmation emails return to the deployed ap
 - Real cloud tests verified durable profiles/editions/account mappings, rollback,
   reader isolation, JSON reading lists, Living Story follows and generation leases.
   Only disposable QA schemas were created and removed.
-- Docker is not installed locally; the actual Linux container build remains unverified.
+- Actual Linux Docker build on Render succeeded, including Vite, Python packages,
+  the public CA and Chromium with Linux libraries. Offline local wheel packaging
+  also verified that the public CA certificate is included.
 
 To repeat cloud verification, run the opt-in cloud tests in disposable private
 QA schemas (never the production schema), then build/deploy and verify the public
@@ -120,3 +126,52 @@ No deployment success or live persistence test is claimed until these checks run
 References: [Render Free](https://render.com/docs/free),
 [Supabase connection modes](https://supabase.com/docs/guides/database/connecting-to-postgres),
 [Supabase Free quotas](https://supabase.com/pricing).
+
+## Public deployment and restart results
+
+All checks below ran against the live HTTPS site, not localhost or mocked APIs.
+
+- `/health`: HTTP 200; configured Auth endpoint: HTTP 200 with Auth enabled.
+- Real RSS Chromium journey: PASS, 8 stories, onboarding, likes/saves/skips,
+  explainable DNA, versioned archive/reload, feedback reset and preferences.
+- Matching PDF: 3 pages; exact edition ID, date and every visible story title verified.
+- Responsive 390px layout: no horizontal overflow; zero uncaught browser errors.
+- Living Story detail/follow persisted; another reader's edition request returned 404.
+- Repeated same-day generation returned the existing edition ID.
+- Public Data API roles `anon` and `authenticated` have no usage on the app schema.
+- An actual Render restart replaced instance `...-855rp` with `...-dcrx2`.
+  Both complete saved edition responses, profile and archive remained identical.
+  The followed story remained followed. The same saved edition exported as a
+  matching 3-page PDF after replacement, and its webpage reopened with all 8 titles.
+
+The browser harness was corrected for two real-data assumptions without altering
+product ranking or publisher text: feedback must change priority scores, but cannot
+promise a visible order change on every news set; PDF title comparison ignores
+invisible Unicode formatting omitted by PDF extraction. This run changed scores
+and retained visible order. Exact edition ID comparison was strengthened as well.
+
+Ignored local evidence: `artifacts/browser-smoke.json`, `artifacts/daily-mind-live.pdf`,
+`artifacts/render-service.json`, `artifacts/render-persistence-results.json`,
+`artifacts/render-after-restart.pdf`, `artifacts/render-final-browser.json`,
+`artifacts/render-after-restart-desktop.png` and `artifacts/render-after-restart-mobile.png`.
+No reader checkpoint, runtime database, screenshot or credential was committed.
+
+Automatic Git deploys are disabled. Later documentation/browser-harness commits do
+not change the running application build unless explicitly deployed. Source for the
+running app is the deployment commit recorded above.
+
+## Remaining account setup and limits
+
+Set Supabase Authentication ? URL Configuration ? Site URL and allowed Redirect URL
+to `https://the-daily-mind.onrender.com` so confirmation emails return to the live app.
+A live signup/email-confirmation/login round trip was not performed; it needs the
+owner's actual email confirmation. Existing auth signature/security tests passed,
+and the public signin form was verified. Do not treat the publishable API key as a
+Postgres password.
+
+Free Render may sleep and cold-start. Daily background checks run while awake;
+startup/on-demand catch-up remains supported. Supabase has Free quotas and inactivity
+pausing. Optional MiniLM embeddings are disabled on this Free deployment; conservative
+Living Story matching remains labeled and was verified. Publisher image bytes are
+cached ephemerally and may be retrieved again after restart; snapshots, source
+metadata, accounts, editions, interactions and follows are in durable Postgres.

@@ -52,7 +52,7 @@ Vite proxies `/api` to port 8000. Rebuild for the single-server demonstration.
 Guest Mode remains the default. Optional email/password signup, signin and signout
 use the official Supabase SDK with persistent sessions. FastAPI verifies asymmetric
 access-token signatures, issuer, audience and expiration, then resolves the account's
-private SQLite reader profile. Guest profiles are preserved separately; there is no
+private server-side reader profile. Guest profiles are preserved separately; there is no
 silent migration. An expired/unavailable account session never silently becomes a guest.
 
 In your checkout's ignored `.env`, configure `SUPABASE_AUTH_ENABLED=true`,
@@ -293,6 +293,8 @@ now support real publisher images; unavailable images remain text-first. See
 real-browser results. No remote push was performed.
 
 ## Free cloud deployment with durable data
+
+**Live demo:** https://the-daily-mind.onrender.com
 
 Local SQLite remains the default. The optional Render deployment uses a Free web
 service and the existing Supabase Free Postgres project so committed editions and
