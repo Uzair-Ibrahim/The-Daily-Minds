@@ -93,6 +93,23 @@ are ignored. Keys are server-only and never included in the frontend.
 
 ## Product behavior
 
+### Image enrichment and reversible engagement
+
+This feature branch can enrich missing images in older editions through a separate
+cache, without rewriting historical snapshots. It prefers the matching publisher RSS
+item; robots-permitted page metadata is a bounded fallback. Missing images use compact
+text treatments. Validated publisher images can be cached locally across restart.
+
+Likes and saves now toggle on/off with explicit desired state. Counts say **YOUR LOCAL
+LIKE** (0 or 1), rather than implying worldwide engagement. The Reading list contains
+saved stories, and removing a like/save reverses only that feedback contribution.
+Every article offers original-source sharing, copy and device-share fallbacks.
+
+Run `python scripts/image_engagement_smoke.py --full-journey` for the genuine Dawn-image,
+engagement, sharing, PDF and existing-browser regression proof. See
+[IMAGE_ENGAGEMENT_IMPLEMENTATION_REPORT.md](IMAGE_ENGAGEMENT_IMPLEMENTATION_REPORT.md)
+for results, permissions caveats, shared files and integration notes.
+
 ### Editorial images
 
 New RSS editions retain publisher-provided image URLs and credits. The lead and first

@@ -4,6 +4,7 @@ import { ArrowUpRight, ArrowRight, ArrowLeft, Bookmark, Heart, X, Check, Downloa
 import { Button } from './components/ui/button';
 import { EditorialMemory } from './components/editorial-memory';
 import { ArticleImage } from './components/article-image';
+import { ArticleEngagement } from './components/article-engagement';
 import './styles.css';
 
 function identity() {
@@ -52,6 +53,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [actions, setActions] = useState({});
   const [hidden, setHidden] = useState({});
+  const [readingList, setReadingList] = useState([]);
   function notify(message, kind = 'success') { setToast({ message, kind }); }
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(null), 5000); return () => clearTimeout(timer); }, [toast]);
   useEffect(() => {
@@ -69,7 +71,7 @@ function App() {
     return past;
   }
   function showEdition(value) {
-    setEdition(value); setHidden({});
+    setEdition({...value, articles: value.articles.map(item => ({...item, primary_topic: value.article_sections?.[item.id] || item.primary_topic, engagement: value.article_engagement?.[item.id]}))}); setHidden({});
     const recorded = {};
     for (const event of value.reader_actions || []) recorded[event.article_id + ':' + event.action] = true;
     setActions(recorded); setView('paper');
@@ -115,13 +117,17 @@ function App() {
   }
   async function interact(article, action) {
     const key = article.id + ':' + action;
-    if (actions[key]) return;
+    const reversible = ['liked', 'saved'].includes(action);
+    if (actions[key] && !reversible) return;
+    const alreadyActive = actions[key] || (action === 'saved' && view === 'saved' && readingList.some(item => item.article.id === article.id));
+    const active = reversible ? !alreadyActive : true;
     await run('interaction:' + key, async () => {
-      const result = await post('/articles/' + article.id + '/interactions', { action });
-      setActions(previous => ({ ...previous, [key]: true })); setDna(result.weights);
+      const result = await post('/articles/' + article.id + '/interactions', { action, active });
+      setActions(previous => ({ ...previous, [key]: active })); setDna(result.weights);
+      if (action === 'saved') setReadingList(await api('/reading-list'));
       if (action === 'skipped' || action === 'not_interested') setHidden(previous => ({ ...previous, [article.id]: true }));
       const messages = { liked: 'Liked. Related topics get a little more weight next time.', saved: 'Saved. This story stays in your archive.', skipped: 'Skipped. This story gets less priority next time.', not_interested: 'Preference recorded. We will dial down related topics.', opened: 'Opened source. This is a click signal, not a completed read.' };
-      notify(messages[action]);
+      notify(!active ? action === 'liked' ? 'Like removed. Its feedback contribution was reversed.' : 'Story removed from your reading list.' : messages[action]);
     });
   }
   async function downloadPDF() {
@@ -138,7 +144,7 @@ function App() {
   return <div className="app-shell">
     <div className="top-strip"><span>A LITTLE LESS NOISE. A LITTLE MORE PERSPECTIVE.</span><span><span className="status-dot"/>YOUR PRIVATE, LOCAL EDITION</span></div>
     <header className="site-header"><button className="wordmark" onClick={() => { setView('paper'); setEditing(false); notify('Your paper.'); }} aria-label="The Daily Mind home">The Daily Mind<span>.</span></button>
-      {profile?.onboarded && !editing && <nav aria-label="Main navigation">{[['paper', 'Your paper', Newspaper], ['archive', 'The archive', Archive], ['dna', 'Interest DNA', Sparkles]].map(([id, label, Icon]) => <button key={id} className={view === id ? 'nav-active' : ''} onClick={() => { setView(id); notify(label + ' opened.'); }}><Icon size={15}/>{label}</button>)}</nav>}
+      {profile?.onboarded && !editing && <nav aria-label="Main navigation">{[['paper', 'Your paper', Newspaper], ['archive', 'The archive', Archive], ['dna', 'Interest DNA', Sparkles], ['saved', 'Reading list', Bookmark]].map(([id, label, Icon]) => <button key={id} className={view === id ? 'nav-active' : ''} onClick={() => { setView(id); if (id === 'saved') run('reading-list', async () => setReadingList(await api('/reading-list'))); notify(label + ' opened.'); }}><Icon size={15}/>{label}</button>)}</nav>}
       <div className="header-end"><span className="small-caps">MADE FOR YOUR MIND</span><div className="avatar">M<span/></div></div>
     </header>
     {initializing ? <main className="page"><div className="initial-loading"><LoaderCircle className="spin"/><p>Opening your reading room…</p></div></main> : !profile ? <main className="page"><div className="empty-state"><Newspaper size={44}/><h1>Your reading room is offline.</h1><p>{error}</p><Button onClick={initialize}>Retry connection <RefreshCw size={16}/></Button></div></main> : onboarding ?
@@ -153,13 +159,14 @@ function App() {
             <div className="masthead-top"><span>VOL. {String(edition.version).padStart(2, '0')}</span><span>AN EDITION AS INDIVIDUAL AS YOU ARE</span><span>{edition.article_count} STORIES</span></div>
             <h2 className="masthead">The Daily Mind<span>.</span></h2><div className="paper-dateline"><span>{displayDate(edition.local_date, true)}</span><span>{edition.source_count} distinct publishers · {edition.timezone}</span><span>{edition.status === 'offline_fallback' ? 'OFFLINE / PREVIOUSLY RETRIEVED' : edition.status === 'cached_sources' ? 'CACHED RSS AT GENERATION' : 'RSS · SAVED SNAPSHOT'}</span></div>
             <div className="paper-intro"><span className="eyebrow">THIS EDITION’S READING LIST</span><span>Selected for {Object.keys(edition.profile_snapshot.topics).slice(0, 3).map(t => labels[t]).join(', ')}</span></div>
-            <div className="articles-grid">{edition.articles.map((article, index) => hidden[article.id] ? <div className="skipped-card" key={article.id}><Check size={18}/><p>Story skipped.<br/><span>Your next paper will learn from this.</span></p><button onClick={() => { setHidden(prev => ({ ...prev, [article.id]: false })); notify('Story shown again. Your feedback is still recorded.'); }}>Show story</button></div> : <ArticleCard key={article.id} editionID={edition.id} article={article} index={index} actions={actions} disabled={!!busy} onAction={interact}/>)}</div>
+            <div className="articles-grid">{edition.articles.map((article, index) => hidden[article.id] ? <div className="skipped-card" key={article.id}><Check size={18}/><p>Story skipped.<br/><span>Your next paper will learn from this.</span></p><button onClick={() => { setHidden(prev => ({ ...prev, [article.id]: false })); notify('Story shown again. Your feedback is still recorded.'); }}>Show story</button></div> : <ArticleCard key={article.id} editionID={edition.id} article={article} index={index} actions={actions} disabled={!!busy} onAction={interact} notify={notify}/>)}</div>
             <EditorialMemory edition={edition}/>
             <div className="edition-notes"><Info size={15}/><p><strong>A note on your sources.</strong> These are attributed publisher excerpts, not AI-written reporting. Edition generated {new Date(edition.generated_at).toLocaleString('en-GB')}. Original retrieval times appear under “Why this story?”. Publication dates appear when provided; retrieval does not mean a story was published today. {edition.warnings.filter(w => !w.startsWith('Attributed')).join(' ')}</p></div>
           </section><div className="feedback-nudge"><Sparkles size={22}/><div><strong>Your next edition starts here.</strong><p>A like, save or skip helps shape tomorrow’s paper. See exactly how.</p></div><button onClick={() => { setView('dna'); notify('Your explainable Interest DNA opened.'); }}>Explore your Interest DNA <ArrowRight size={16}/></button></div>
         </> : <div className="empty-state"><Newspaper size={48}/><h2>Your first edition is waiting.</h2><p>We’ll gather real public news feeds and build a paper around your interests.<br/>No account. No paid APIs. Just a more thoughtful read.</p><Button disabled={!!busy} onClick={() => generate()}>Create my paper <ArrowRight size={17}/></Button>{archive.length > 0 && <button className="text-button" onClick={() => { setView('archive'); notify('Saved editions opened.'); }}>Read a saved edition instead</button>}</div>}
       </>}
       {view === 'archive' && <><SectionTitle eyebrow="YOUR PERSONAL LIBRARY" title="Good reads don’t expire." description="Every saved edition, exactly as it was. A new version never overwrites the old."/><div className="archive-grid">{archive.length ? archive.map((item, index) => <button className="archive-card" key={item.id} disabled={!!busy} onClick={() => run('archive', async () => { showEdition(await api('/editions/' + item.id)); notify('Saved edition opened without retrieving new stories.'); })}><div className="archive-preview"><div className="archive-mini-title">The Daily Mind.</div><div className="mini-lines"/><h3>{displayDate(item.local_date)}</h3><div className="mini-columns"><span/><span/><span/></div></div><div className="archive-meta"><span className="eyebrow">{index === 0 ? 'LATEST SAVED EDITION' : 'SAVED EDITION'}</span><h3>{displayDate(item.local_date)}</h3><p>Version {item.version} · {item.article_count} stories</p><span className="archive-open">Open this paper <ArrowUpRight size={16}/></span></div></button>) : <div className="empty-state"><Archive size={40}/><h2>A library starts with one paper.</h2><p>Generate your first edition to begin your archive.</p><Button onClick={() => generate()}>Create an edition</Button></div>}</div></>}
+      {view === 'saved' && <><SectionTitle eyebrow="YOUR READING LIST" title="Keep a good story close." description="Your saved articles, linked to their original edition and publisher."/>{readingList.length ? <div className="reading-list">{readingList.map(item => <article key={item.article.id}><h2>{item.article.title}</h2><p>{item.article.source}</p><a href={item.article.url} target="_blank" rel="noopener noreferrer">Read original <ArrowUpRight size={14}/></a><Button variant="outline" disabled={!!busy} onClick={() => run('saved-edition', async () => { showEdition(await api('/editions/' + item.edition_id)); notify('Saved edition opened.'); })}>Open saved edition</Button><Button variant="ghost" disabled={!!busy} onClick={() => interact(item.article, 'saved')}>Unsave story</Button></article>)}</div> : <div className="empty-state"><Bookmark size={40}/><h2>No saved stories yet.</h2><p>Use the bookmark on a story to keep it here.</p></div>}</>}
       {view === 'dna' && <><SectionTitle eyebrow="ADAPTIVE INTEREST DNA" title="A paper that grows with you." description="No hidden profiling. Your choices and a few bounded signals shape what comes next."/><div className="dna-layout"><section className="dna-panel"><div className="panel-heading"><h2>Your curiosity, mapped.</h2><span className="live-label">{dna.reduce((n, row) => n + row.events, 0)} topic signals</span></div><p className="muted">The pale bar is your chosen interest. Green shows its current weight after real feedback.</p>{dna.map(item => <div className="dna-row" key={item.topic}><div><span>{item.label}</span><span>{item.weight.toFixed(2)} <small>{item.feedback > 0 ? '+' : ''}{item.feedback.toFixed(2)} from feedback</small></span></div><div className="dna-track"><div className="dna-base" style={{width: `${item.base / 3 * 100}%`}}/><div className="dna-current" style={{width: `${item.weight / 3 * 100}%`}}/></div></div>)}<div className="dna-actions"><Button variant="outline" disabled={!!busy} onClick={() => { setEditing(true); notify('Edit your interests.'); }}><SlidersHorizontal size={15}/>Edit preferences</Button><Button variant="ghost" disabled={!!busy} onClick={() => run('reset', async () => { const result = await post('/profile/reset-feedback'); setDna(result.weights); notify('Feedback reset. Saved editions are unchanged.'); })}><RotateCcw size={15}/>Reset feedback</Button></div></section><aside className="dna-explainer"><Sparkles size={26}/><h2>Small signals.<br/>A more personal paper.</h2><p>Likes and saves gently raise topic weights. Skips reduce them. Opening a source is only a small click signal—not proof you read it.</p><div className="signal-list"><span><Heart size={15}/>Like <b>+0.35</b></span><span><Bookmark size={15}/>Save <b>+0.25</b></span><span><X size={15}/>Skip <b>−0.20</b></span></div><p className="tiny">Signals are shared across a story’s topics and capped at ±1 per topic. Ranking also considers known recency, publisher diversity and repetition. These are explainable heuristics, not confidence scores.</p><Button disabled={!!busy} onClick={() => generate(true)}>See it in your next edition <ArrowRight size={16}/></Button></aside></div></>}
     </main>}
     <footer className="site-footer"><span className="footer-brand">The Daily Mind<span>.</span></span><span>Your newspaper. Your curiosity. Your evolving intelligence.</span><span>LESS SCROLLING. MORE UNDERSTANDING.</span></footer>
@@ -169,19 +176,19 @@ function App() {
 
 function SectionTitle({ eyebrow, title, description }) { return <section className="section-title"><div className="eyebrow"><span className="mini-rule"/>{eyebrow}</div><h1>{title}</h1><p>{description}</p></section>; }
 
-function ArticleCard({article, index, actions, disabled, onAction, editionID}) {
+function ArticleCard({article, index, actions, disabled, onAction, editionID, notify}) {
   const liked = actions[article.id + ':liked']; const saved = actions[article.id + ':saved'];
   const date = article.published_at ? new Date(article.published_at) : null;
   const older = date && Date.now() - date.getTime() > 72 * 3600000;
   const viaGoogle = new URL(article.url).hostname === 'news.google.com';
   return <article className={'article-card article-' + index}>
-    <div className="article-kicker"><span>{labels[article.topics[0]] || 'World affairs'}</span><span>{String(index + 1).padStart(2, '0')}</span></div>
+    <div className="article-kicker"><span>{labels[article.primary_topic || article.topics[0]] || 'World affairs'}</span><span>{String(index + 1).padStart(2, '0')}</span></div>
     <h3><a href={article.url} target="_blank" rel="noopener noreferrer" onClick={() => onAction(article, 'opened')}>{article.title}</a></h3>
     <div className="byline"><span className="source-dot"/>{article.source}<span>·</span><span>{date ? date.toLocaleDateString('en-GB', {day:'numeric',month:'short'}) + (older ? ' · Older coverage' : '') : 'Publication date unknown'}</span></div>
-    {index < 3 && <ArticleImage article={article} editionID={editionID} readerID={readerID} section={labels[article.topics[0]] || 'World affairs'} lead={index === 0}/>}
+    {index < 3 && <ArticleImage article={article} editionID={editionID} readerID={readerID} section={labels[article.primary_topic || article.topics[0]] || 'World affairs'} lead={index === 0}/>}
     <p className="article-description">{article.description || 'No feed description supplied. Follow the original source for the full report.'}</p>
     <span className="excerpt-label">{viaGoogle ? 'GOOGLE NEWS RSS · PUBLISHER-LABELED HEADLINE / EXCERPT' : 'ATTRIBUTED PUBLISHER EXCERPT'}</span>
-    <div className="article-bottom"><a className="read-source" href={article.url} target="_blank" rel="noopener noreferrer" onClick={() => onAction(article, 'opened')}>{viaGoogle ? 'Open via Google News' : 'Read original'} <ArrowUpRight size={15}/></a><div className="article-actions"><button className={liked ? 'selected-action' : ''} aria-label={'Like ' + article.title} disabled={disabled || liked} onClick={() => onAction(article, 'liked')} title="More like this"><Heart size={16} fill={liked ? 'currentColor' : 'none'}/></button><button className={saved ? 'selected-action' : ''} aria-label={'Save ' + article.title} disabled={disabled || saved} onClick={() => onAction(article, 'saved')} title="Save this story"><Bookmark size={16} fill={saved ? 'currentColor' : 'none'}/></button><button aria-label={'Skip ' + article.title} disabled={disabled} onClick={() => onAction(article, 'skipped')} title="Skip this story"><X size={17}/></button></div></div>
+    <div className="article-bottom"><a className="read-source" href={article.url} target="_blank" rel="noopener noreferrer" onClick={() => onAction(article, 'opened')}>{viaGoogle ? 'Open via Google News' : 'Read original'} <ArrowUpRight size={15}/></a><ArticleEngagement article={article} liked={liked} saved={saved} disabled={disabled} onAction={onAction} notify={notify}/></div>
     <details className="ranking-details"><summary>Why this story? <Sparkles size={12}/></summary><p>{article.reasons.join('. ')}.</p><div className="breakdown">{Object.entries(article.breakdown).map(([key,value]) => <span key={key}>{key.replaceAll('_',' ')} <b>{value > 0 ? '+' : ''}{value}</b></span>)}</div><p>Priority points are ranking heuristics, not confidence. Retrieved {new Date(article.retrieved_at).toLocaleString('en-GB')}.</p><button disabled={disabled || actions[article.id + ':not_interested']} onClick={() => onAction(article, 'not_interested')}>Not interested in this topic</button></details>
   </article>;
 }

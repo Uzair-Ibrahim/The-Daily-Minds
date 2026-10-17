@@ -66,6 +66,10 @@ class Article(BaseModel):
     image_url: str | None = None
     image_origin: str | None = None
     image_credit: str | None = Field(default=None, max_length=160)
+    image_source: str | None = None
+    image_alt: str | None = Field(default=None, max_length=300)
+    image_status: str = 'unresolved'
+    primary_topic: str | None = None
     score: float | None = None
     reasons: list[str] = Field(default_factory=list)
     breakdown: dict[str, float] = Field(default_factory=dict)
@@ -85,6 +89,7 @@ class GenerateInput(BaseModel):
 class InteractionInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     action: Literal["opened", "skipped", "liked", "saved", "not_interested"]
+    active: bool = True
 
 
 class NewsSearchResult(BaseModel):

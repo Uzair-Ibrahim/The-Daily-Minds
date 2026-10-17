@@ -15,6 +15,8 @@ import httpx
 from backend.config import Settings
 from backend.news.models import Article, TOPICS
 from backend.news.images import extract_image
+from backend.news.image_resolver import fields as image_fields
+from backend.news.editorial import primary_topic
 from backend.services.provenance import utc_now
 
 FEEDS = [
@@ -151,7 +153,8 @@ class NewsDiscovery:
                                     result.append(Article(id=hashlib.sha256(link.encode()).hexdigest()[:24], url=link,
                                         title=title, source=publisher, origin=url, description=description,
                                         published_at=published, retrieved_at=retrieved, topics=topic_matches(title + " " + description),
-                                        **extract_image(entry, link)))
+                                        primary_topic=primary_topic({'title': title, 'topics': topic_matches(title + ' ' + description)}),
+                                        **image_fields(entry, link)))
                                 except (ValueError, TypeError, OverflowError):
                                     continue
                             warning = None if result else f"{source}: no usable feed entries."
