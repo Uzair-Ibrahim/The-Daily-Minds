@@ -1,5 +1,43 @@
 # API contract
 
+## Editorial image delivery
+
+New article snapshots optionally include `image_url`, `image_origin` and `image_credit`.
+Missing fields in older snapshots are supported without migration or refetching.
+`GET /api/editions/{edition_id}/articles/{article_id}/image` requires `X-Reader-ID`
+and resolves only that reader's saved edition/article. It does not accept a URL query.
+Returns validated, resized JPEG bytes (200) or an empty unavailable response (204);
+invalid reader IDs return 400 and unavailable/inaccessible snapshots return 404.
+Responses use private caching and `Vary: X-Reader-ID`. The frontend loads a same-origin
+blob with its existing reader header and falls back on any failure. Images are optional
+and image delivery never changes edition snapshots or reruns discovery.
+
+Remote downloads accept only the exact audited publisher image hosts, public DNS
+addresses, valid image formats and bounded sizes/deadlines. Redirects are rejected.
+PDF uses the same in-process loader for one lead image, embedded as validated data;
+Chromium's external network requests remain blocked. `/print` stays a self-contained
+text/section-treatment representation; PDF is the image-bearing print artifact.
+
+## Daily generation semantics
+
+`POST /api/editions/generate` with `{}` returns the latest existing immutable version
+for the reader's current IANA-local calendar date, or creates version 1. Startup and
+periodic generation use the same service for onboarded readers, with RSS only. Opening
+the reader triggers catch-up when the latest saved date is older. Missed days are not
+backfilled with newly fetched content. `{ "regenerate": true }` still appends a version
+and requires retrieval success, preserving its existing error behavior.
+
+New snapshots include `generation_trigger` (`automatic` or `on_demand`),
+`source_retrieved_from` and `source_retrieved_to`. `status=offline_fallback` identifies a
+newly assembled paper from persisted RSS, not fresh news. `cached_sources` identifies
+short-lived feed-cache reuse. Source publication/retrieval timestamps never change to
+the assembly date. Existing legacy snapshots do not require these extra fields.
+
+Generation claims are durable per reader/date. Contention waits boundedly; failure
+cooldown or no usable content returns the existing redacted 503 `no_live_data` shape.
+SQLite/PDF failures retain their graceful error paths. Configuration and limitations
+are documented in README.md and DAILY_GENERATION_QA.md.
+
 ## The Daily Mind product endpoints
 
 Local anonymous reader ID: send a UUID in `X-Reader-ID`. The React app creates and keeps

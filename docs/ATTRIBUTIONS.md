@@ -1,5 +1,14 @@
 # Dependencies and references
 
+Editorial images are selected exclusively from publisher-supplied RSS metadata/HTML.
+Original image URLs, metadata origins and supplied credits are retained in new saved
+editions. Where photographer credit is unavailable, the UI says "Image via [source]"
+rather than inventing a photographer or license. Image copyrights remain with their
+owners; metadata availability is not a redistribution-license audit. No stock-image
+API, generated news photography, page scraping or newly granted content license is used.
+Pillow, already in the dependency lock, is now required at runtime to validate, resize
+and re-encode JPEG/PNG/WebP delivery; its bundled license information still applies.
+
 ## Application license status
 
 No application-wide open-source license has been selected by the owner. Publication

@@ -1,5 +1,33 @@
 # The Daily Mind — implementation status
 
+## Editorial images — 2026-10-17
+
+DONE: prioritized RSS image extraction, saved URL/origin/credit fields, bounded local
+publisher-CDN image delivery, editorial lead/secondary photos and category fallback,
+one embedded lead photo in PDF. Existing archives remain immutable and compatible.
+
+Actual checks: **154 passed, 1 optional skipped in 77.53s**; production build passed
+in 2.48s. Live sample images from all six image-bearing feeds downloaded successfully;
+Google News supplied none. Actual web lead photo and one embedded PDF photo verified,
+including missing/failed image UI, legacy snapshots, full existing journey and mobile.
+See IMAGE_SUPPORT_REPORT.md. No paid calls, generated news images, commits or pushes.
+
+## Daily generation follow-up — 2026-10-17
+
+DONE: startup catch-up and periodic reader-local date checks; durable generation claims,
+failure cooldown, common-feed caching, labeled persisted-RSS offline fallback, webpage
+catch-up and matching PDF disclosure. Existing snapshots and explicit versioning retained.
+
+Actually verified: **121 passed, 1 optional skipped in 66.03s**; Vite build passed in
+2.38s. Actual automatically retrieved RSS edition opened on web and exported as matching
+two-page PDF. Explicit simulated outage reused actual stored RSS with visible web/PDF
+labels; prior snapshot stayed unchanged. Existing complete browser journey passed,
+including feedback-driven order changes, archive, preferences and mobile.
+
+See docs/DAILY_GENERATION_QA.md for all five requirements, exact results, changed files
+and remaining limits. docs/LIVING_STORY_GRAPH_PLAN.md contains the next scoped plan;
+graph functionality is not implemented. Changes remain local; no commit or push.
+
 Publication update (2026-10-17): the owner subsequently supplied the GitHub repository
 and authorized an initial snapshot. Publication blockers below describe the earlier
 local audit. Event-start/monitored-development compliance remains unresolved. See

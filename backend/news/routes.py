@@ -6,11 +6,13 @@ from fastapi import APIRouter, Header, HTTPException, Response
 from backend.news.models import ProfileInput, GenerateInput, InteractionInput, TOPICS, reader_id
 from backend.news.pdf import render_pdf, edition_html
 from backend.news.service import NoLiveNews
+from backend.news.images import ImageDelivery
 
 
 def create_news_router(paper):
     router = APIRouter(prefix="/api")
     pdf_lock = asyncio.Semaphore(1)
+    images = ImageDelivery()
 
     def identify(value):
         try:
@@ -77,10 +79,22 @@ def create_news_router(paper):
         value = get_edition(edition_id, x_reader_id)
         try:
             async with pdf_lock:
-                content = await render_pdf(value)
+                content = await render_pdf(value, image_loader=images)
             return Response(content, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="daily-mind-{value["local_date"]}-v{value["version"]}.pdf"'})
         except Exception:
             raise HTTPException(503, "PDF renderer unavailable. Run python -m playwright install chromium locally, then retry.")
+
+    @router.get('/editions/{edition_id}/articles/{article_id}/image')
+    async def article_image(edition_id: str, article_id: str, x_reader_id: str | None = Header(default=None)):
+        value = get_edition(edition_id, x_reader_id)
+        article = next((item for item in value['articles'] if item['id'] == article_id), None)
+        if not article:
+            raise HTTPException(404, 'Article not found in this edition.')
+        content = await images.get(article.get('image_url'))
+        if not content:
+            return Response(status_code=204, headers={'Cache-Control': 'private, max-age=60', 'Vary': 'X-Reader-ID'})
+        return Response(content, media_type='image/jpeg', headers={
+            'Cache-Control': 'private, max-age=86400', 'Vary': 'X-Reader-ID', 'X-Content-Type-Options': 'nosniff'})
 
     @router.post("/articles/{article_id}/interactions")
     async def interact(article_id: str, body: InteractionInput, x_reader_id: str | None = Header(default=None)):

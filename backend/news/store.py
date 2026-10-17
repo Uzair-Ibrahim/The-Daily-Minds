@@ -1,10 +1,11 @@
 import json
 import sqlite3
+from datetime import timedelta
 from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
-from backend.news.models import ProfileInput
+from backend.news.models import Article, ProfileInput
 from backend.services.provenance import utc_now
 
 
@@ -22,6 +23,8 @@ class Store:
                 CREATE TABLE IF NOT EXISTS editions(id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, local_date TEXT NOT NULL,
                     version INTEGER NOT NULL, snapshot TEXT NOT NULL, UNIQUE(profile_id,local_date,version));
                 CREATE INDEX IF NOT EXISTS editions_reader ON editions(profile_id,local_date);
+                CREATE TABLE IF NOT EXISTS generation_leases(profile_id TEXT NOT NULL, local_date TEXT NOT NULL,
+                    owner TEXT NOT NULL, expires_at REAL NOT NULL, PRIMARY KEY(profile_id,local_date));
             """)
 
     @contextmanager
@@ -75,6 +78,46 @@ class Store:
     def reset_feedback(self, profile_id):
         with self.connect() as db:
             db.execute("DELETE FROM interactions WHERE profile_id=?", (profile_id,))
+
+    def onboarded_readers(self):
+        with self.connect() as db:
+            return [row['id'] for row in db.execute(
+                "SELECT id FROM profiles WHERE json_extract(data,'$.onboarded')=1 ORDER BY created_at")]
+
+    def cached_articles(self, now, max_age_days):
+        with self.connect() as db:
+            rows = db.execute("SELECT data FROM articles ORDER BY json_extract(data,'$.retrieved_at') DESC LIMIT 500").fetchall()
+        articles = []
+        for row in rows:
+            try:
+                article = Article.model_validate_json(row['data'])
+                if (article.provenance == 'rss_excerpt' and article.retrieved_at.tzinfo is not None
+                    and now - timedelta(days=max_age_days) <= article.retrieved_at <= now):
+                    articles.append(article)
+            except ValueError:
+                continue
+        return sorted(articles, key=lambda item: item.retrieved_at, reverse=True)[:150]
+
+    def claim_generation(self, profile_id, local_date, owner, now):
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT owner,expires_at FROM generation_leases WHERE profile_id=? AND local_date=?',
+                             (profile_id, local_date)).fetchone()
+            if row and row['expires_at'] > now:
+                return 'busy' if row['owner'] else 'cooldown'
+            db.execute('INSERT INTO generation_leases VALUES(?,?,?,?) ON CONFLICT(profile_id,local_date) '
+                       'DO UPDATE SET owner=excluded.owner,expires_at=excluded.expires_at',
+                       (profile_id, local_date, owner, now + 120))
+        return 'claimed'
+
+    def finish_generation(self, profile_id, local_date, owner, retry_at=None):
+        with self.connect() as db:
+            if retry_at is None:
+                db.execute('DELETE FROM generation_leases WHERE profile_id=? AND local_date=? AND owner=?',
+                           (profile_id, local_date, owner))
+            else:
+                db.execute("UPDATE generation_leases SET owner='',expires_at=? WHERE profile_id=? AND local_date=? AND owner=?",
+                           (retry_at, profile_id, local_date, owner))
 
     def latest(self, profile_id, local_date):
         with self.connect() as db:

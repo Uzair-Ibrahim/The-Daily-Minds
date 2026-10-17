@@ -63,10 +63,18 @@ class Article(BaseModel):
     retrieved_at: datetime
     topics: list[str]
     provenance: Literal["rss_excerpt", "exa_excerpt", "tavily_excerpt"] = "rss_excerpt"
+    image_url: str | None = None
+    image_origin: str | None = None
+    image_credit: str | None = Field(default=None, max_length=160)
     score: float | None = None
     reasons: list[str] = Field(default_factory=list)
     breakdown: dict[str, float] = Field(default_factory=dict)
 
+    @field_validator('image_url', mode='before')
+    @classmethod
+    def valid_image(cls, value):
+        from backend.news.images import image_url
+        return image_url(value)
 
 class GenerateInput(BaseModel):
     model_config = ConfigDict(extra="forbid")

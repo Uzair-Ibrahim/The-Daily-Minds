@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     credit_search_confirmed_free: bool = False
     database_path: str = str(ROOT / "data" / "daily_mind.sqlite3")
+    daily_generation_enabled: bool = True
+    daily_generation_interval_seconds: int = Field(default=60, ge=1, le=3600)
+    daily_generation_retry_seconds: int = Field(default=300, ge=1, le=3600)
+    offline_news_max_age_days: int = Field(default=7, ge=1, le=30)
 
     @property
     def search_configured(self) -> bool:

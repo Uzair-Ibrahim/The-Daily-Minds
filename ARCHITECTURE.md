@@ -13,7 +13,13 @@ flowchart TD
     DB[(SQLite: profiles, articles, events, immutable editions)]
     PDF[Local Chromium: shared edition snapshot to print HTML/PDF]
     CLI[CLI paper / ask / health]
+    Scheduler[Local startup catch-up and periodic date checks]
+    Lease[SQLite reader/date lease and failure cooldown]
+    Images[Bounded local publisher-CDN image loader and cache]
     Reader --> API
+    Scheduler --> Lease
+    API --> Lease
+    Lease -->|shared newspaper service| RSS
     CLI --> Tools
     Tools --> RSS
     Tools --> Search
@@ -31,6 +37,9 @@ flowchart TD
     DB -->|bounded topic feedback| Rank
     DB -->|same immutable snapshot| Reader
     DB --> PDF
+    DB -->|saved image URL and credit| Images
+    Images -->|reader-scoped JPEG endpoint| Reader
+    Images -->|one validated embedded lead image| PDF
     PDF --> Reader
 ```
 
@@ -78,3 +87,26 @@ readable. Local PDF jobs are serialized; print rendering blocks external request
 
 Free-credit status cannot be proven from key presence, so credit search is off by default.
 No payment, model, cloud hosting, account scraping or automatic submission workflow exists.
+
+Daily scheduling runs in FastAPI's lifespan and is cancelled on graceful shutdown.
+Automatic/manual generation share the service, per-reader lock and durable SQLite
+lease. Existing editions return before retrieval. Failed work has a retry cooldown;
+abandoned leases expire, and cancellation releases its claim. Bounded per-process
+feed caches share responses between query interests and briefly cache feed failures.
+
+Catch-up creates today's local date only. Persisted RSS within the configured maximum
+retrieval age can create a labeled offline snapshot. Source times are unchanged; web
+and PDF share its status, source-time range and warnings. Existing offline editions are
+never silently upgraded. Use one worker for shared feed caching; no jobs run while off.
+
+RSS normalization now extracts an optional best publisher image before stripping HTML
+to an attributed description. Metadata survives Article JSON and immutable snapshots;
+older editions are unchanged. Only URLs saved in a reader-owned article can reach the
+image endpoint. The loader uses exact known publisher CDN hosts, public-address DNS
+checks, no redirects or environment proxy, byte/pixel/time/concurrency bounds, verified
+raster formats, metadata-free JPEG re-encoding, and bounded coalesced caching. Browser
+images use authenticated-by-reader-header same-origin blobs, not third-party requests.
+That header is still anonymous local data partitioning, not production authentication.
+PDF embeds the validated lead JPEG; its Chromium browser still blocks remote requests.
+Only metadata is persistent; in-memory image bytes are best effort and can disappear
+on restart. A publisher may change or remove an asset without altering our saved text.

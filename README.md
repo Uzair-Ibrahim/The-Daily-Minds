@@ -93,6 +93,57 @@ are ignored. Keys are server-only and never included in the frontend.
 
 ## Product behavior
 
+### Editorial images
+
+New RSS editions retain publisher-provided image URLs and credits. The lead and first
+two secondary stories show images; later stories remain text-first. Missing/failed
+images use a labeled section treatment, without substitute photography. Older archived
+editions remain readable and are not retroactively changed.
+
+The local image endpoint serves only saved image URLs on the audited BBC, Dawn and
+Guardian CDNs. It validates/limits downloads, strips metadata and caches resized JPEGs;
+the browser receives no third-party image cookies or credentials. PDF embeds only the
+lead image from that same delivery path, with a graceful text treatment if unavailable.
+No paid service, generated news imagery or source-page scraping is used. BBC feed
+thumbnails can be low resolution; Google News RSS often supplies no image.
+
+Pillow is now a runtime dependency (already pinned in requirements-lock.txt). Existing
+setup commands install it. Run `python scripts/audit_feed_images.py` for the current
+feed audit and `python scripts/image_support_smoke.py --full-journey` for actual web,
+mobile, PDF, fallback and existing-journey verification. See
+[IMAGE_SUPPORT_REPORT.md](IMAGE_SUPPORT_REPORT.md) for results and limitations.
+
+### Daily generation
+
+FastAPI startup catches up today's edition for onboarded readers; a background loop
+checks each reader's IANA timezone every 60 seconds. Opening the webpage also catches
+up today's paper. Automatic retrieval uses public RSS only, without paid providers.
+Existing editions return before retrieval; explicit regeneration appends a version.
+
+```dotenv
+DAILY_GENERATION_ENABLED=true
+DAILY_GENERATION_INTERVAL_SECONDS=60
+DAILY_GENERATION_RETRY_SECONDS=300
+OFFLINE_NEWS_MAX_AGE_DAYS=7
+```
+
+During an RSS outage, default daily requests can use persisted RSS retrieved within
+seven days. Web/PDF label this **previously retrieved content, not fresh news** and keep
+original source timestamps. Without usable content, generation returns a graceful 503
+and archives remain available. Explicit regeneration still requires retrieval success.
+An offline edition remains immutable; regenerate after reconnection for a new version.
+
+The app must be running for automatic generation. Catch-up creates today's paper only,
+never invented papers for missed dates. One Uvicorn worker is recommended: durable
+per-reader/date leases coordinate workers, while feed caches are per process. Failed
+generation retries after five minutes; abandoned leases expire after two minutes.
+No exactly-once retrieval guarantee is possible across a process crash.
+
+Run `python scripts/daily_generation_smoke.py --full-journey` for the isolated real-RSS
+scheduler/browser/PDF test and existing user journey. See the
+[daily-generation audit](docs/DAILY_GENERATION_QA.md) for current results and the
+[Living Story Graph plan](docs/LIVING_STORY_GRAPH_PLAN.md) for the next enhancement.
+
 - **Onboarding:** seven categories, custom interests, reading depth/edition length,
   English, optional region and timezone. A random browser-local reader ID scopes backend
   data. There is no signup or global shared personal profile.
@@ -148,7 +199,7 @@ new version → PDF → archive → reload → mobile. It writes an actual JSON 
 screenshots, a local WebM journey recording and real PDF in ignored `artifacts/`.
 The local recording is not a Loom upload or an official submission.
 
-The final audit has **106 passing tests and one optional skipped test**; see
+The original product audit had **106 passing tests and one optional skipped test**; see
 [FINAL_QA_REPORT.md](FINAL_QA_REPORT.md) for the requirements matrix and exact evidence.
 The isolated final QA uses the separate `data/qa-personalization.sqlite3` database,
 OS-assigned localhost ports, and actual captured sources. It doesn't stop a user-started
@@ -165,7 +216,7 @@ See [implementation status](IMPLEMENTATION_STATUS.md),
 
 Local demo only: anonymous IDs are data partition keys, not production authentication.
 Keep the server bound to localhost. English feeds only; no translation/LLM synthesis,
-automatic overnight scheduler, guaranteed article paywall access, image licensing
+OS-level overnight wakeup, guaranteed article paywall access, image licensing
 system, multi-perspective graph or cloud deployment. Public feeds can fail; the app
 shows no-live-data and lets you read saved editions without a new fetch.
 

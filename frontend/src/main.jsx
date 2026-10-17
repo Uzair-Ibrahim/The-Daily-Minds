@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { ArrowUpRight, ArrowRight, ArrowLeft, Bookmark, Heart, X, Check, Download, RefreshCw, Sparkles, Newspaper, SlidersHorizontal, Archive, Globe2, Cpu, FlaskConical, Landmark, Trophy, Palette, MapPin, LoaderCircle, RotateCcw, ChevronRight, Info } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { EditorialMemory } from './components/editorial-memory';
+import { ArticleImage } from './components/article-image';
 import './styles.css';
 
 function identity() {
@@ -79,6 +80,15 @@ function App() {
       const person = await api('/profile'); setProfile(person);
       const past = await refreshData();
       if (past.length) showEdition(await api('/editions/' + past[0].id));
+      if (person.onboarded) {
+        const today = new Intl.DateTimeFormat('en-CA', {timeZone: person.timezone, year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date());
+        if (!past.length || past[0].local_date !== today) {
+          const current = await post('/editions/generate');
+          showEdition(await api('/editions/' + current.id));
+          await refreshData();
+          notify(current.status === 'offline_fallback' ? 'Offline paper ready from previously retrieved sources.' : 'Your daily paper is ready.');
+        }
+      }
     } catch (e) { setError(e.message); }
     finally { setInitializing(false); }
   }
@@ -139,10 +149,11 @@ function App() {
         {busy === 'edition' ? <div className="loading-paper" aria-live="polite"><div className="loading-caption"><LoaderCircle size={17} className="spin"/>Gathering public feeds and arranging your edition. No invented stories.</div><div className="skeleton big"/><div className="skeleton-grid">{[1, 2, 3].map(i => <div className="skeleton" key={i}/>)}</div></div> : edition ? <>
           <div className="paper-toolbar"><div className="topic-pills">{selectedTopics.map(topic => <span key={topic}>{labels[topic]}</span>)}</div><Button variant="outline" disabled={!!busy} onClick={downloadPDF}>{busy === 'pdf' ? <LoaderCircle className="spin" size={15}/> : <Download size={15}/>} {busy === 'pdf' ? 'Printing your paper…' : 'Download PDF'}</Button></div>
           <section className="newspaper" aria-label="Your saved newspaper edition">
+            {edition.status === 'offline_fallback' && <div className="error-banner" role="note"><Info size={18}/><span><strong>Offline edition — previously retrieved content, not fresh news.</strong> Sources retrieved {new Date(edition.source_retrieved_from).toLocaleString('en-GB')} to {new Date(edition.source_retrieved_to).toLocaleString('en-GB')}. The edition date records assembly, not publication.</span></div>}
             <div className="masthead-top"><span>VOL. {String(edition.version).padStart(2, '0')}</span><span>AN EDITION AS INDIVIDUAL AS YOU ARE</span><span>{edition.article_count} STORIES</span></div>
-            <h2 className="masthead">The Daily Mind<span>.</span></h2><div className="paper-dateline"><span>{displayDate(edition.local_date, true)}</span><span>{edition.source_count} distinct publishers · {edition.timezone}</span><span>{edition.status === 'cached_sources' ? 'CACHED RSS AT GENERATION' : 'RSS · SAVED SNAPSHOT'}</span></div>
+            <h2 className="masthead">The Daily Mind<span>.</span></h2><div className="paper-dateline"><span>{displayDate(edition.local_date, true)}</span><span>{edition.source_count} distinct publishers · {edition.timezone}</span><span>{edition.status === 'offline_fallback' ? 'OFFLINE / PREVIOUSLY RETRIEVED' : edition.status === 'cached_sources' ? 'CACHED RSS AT GENERATION' : 'RSS · SAVED SNAPSHOT'}</span></div>
             <div className="paper-intro"><span className="eyebrow">THIS EDITION’S READING LIST</span><span>Selected for {Object.keys(edition.profile_snapshot.topics).slice(0, 3).map(t => labels[t]).join(', ')}</span></div>
-            <div className="articles-grid">{edition.articles.map((article, index) => hidden[article.id] ? <div className="skipped-card" key={article.id}><Check size={18}/><p>Story skipped.<br/><span>Your next paper will learn from this.</span></p><button onClick={() => { setHidden(prev => ({ ...prev, [article.id]: false })); notify('Story shown again. Your feedback is still recorded.'); }}>Show story</button></div> : <ArticleCard key={article.id} article={article} index={index} actions={actions} disabled={!!busy} onAction={interact}/>)}</div>
+            <div className="articles-grid">{edition.articles.map((article, index) => hidden[article.id] ? <div className="skipped-card" key={article.id}><Check size={18}/><p>Story skipped.<br/><span>Your next paper will learn from this.</span></p><button onClick={() => { setHidden(prev => ({ ...prev, [article.id]: false })); notify('Story shown again. Your feedback is still recorded.'); }}>Show story</button></div> : <ArticleCard key={article.id} editionID={edition.id} article={article} index={index} actions={actions} disabled={!!busy} onAction={interact}/>)}</div>
             <EditorialMemory edition={edition}/>
             <div className="edition-notes"><Info size={15}/><p><strong>A note on your sources.</strong> These are attributed publisher excerpts, not AI-written reporting. Edition generated {new Date(edition.generated_at).toLocaleString('en-GB')}. Original retrieval times appear under “Why this story?”. Publication dates appear when provided; retrieval does not mean a story was published today. {edition.warnings.filter(w => !w.startsWith('Attributed')).join(' ')}</p></div>
           </section><div className="feedback-nudge"><Sparkles size={22}/><div><strong>Your next edition starts here.</strong><p>A like, save or skip helps shape tomorrow’s paper. See exactly how.</p></div><button onClick={() => { setView('dna'); notify('Your explainable Interest DNA opened.'); }}>Explore your Interest DNA <ArrowRight size={16}/></button></div>
@@ -158,7 +169,7 @@ function App() {
 
 function SectionTitle({ eyebrow, title, description }) { return <section className="section-title"><div className="eyebrow"><span className="mini-rule"/>{eyebrow}</div><h1>{title}</h1><p>{description}</p></section>; }
 
-function ArticleCard({article, index, actions, disabled, onAction}) {
+function ArticleCard({article, index, actions, disabled, onAction, editionID}) {
   const liked = actions[article.id + ':liked']; const saved = actions[article.id + ':saved'];
   const date = article.published_at ? new Date(article.published_at) : null;
   const older = date && Date.now() - date.getTime() > 72 * 3600000;
@@ -167,6 +178,7 @@ function ArticleCard({article, index, actions, disabled, onAction}) {
     <div className="article-kicker"><span>{labels[article.topics[0]] || 'World affairs'}</span><span>{String(index + 1).padStart(2, '0')}</span></div>
     <h3><a href={article.url} target="_blank" rel="noopener noreferrer" onClick={() => onAction(article, 'opened')}>{article.title}</a></h3>
     <div className="byline"><span className="source-dot"/>{article.source}<span>·</span><span>{date ? date.toLocaleDateString('en-GB', {day:'numeric',month:'short'}) + (older ? ' · Older coverage' : '') : 'Publication date unknown'}</span></div>
+    {index < 3 && <ArticleImage article={article} editionID={editionID} readerID={readerID} section={labels[article.topics[0]] || 'World affairs'} lead={index === 0}/>}
     <p className="article-description">{article.description || 'No feed description supplied. Follow the original source for the full report.'}</p>
     <span className="excerpt-label">{viaGoogle ? 'GOOGLE NEWS RSS · PUBLISHER-LABELED HEADLINE / EXCERPT' : 'ATTRIBUTED PUBLISHER EXCERPT'}</span>
     <div className="article-bottom"><a className="read-source" href={article.url} target="_blank" rel="noopener noreferrer" onClick={() => onAction(article, 'opened')}>{viaGoogle ? 'Open via Google News' : 'Read original'} <ArrowUpRight size={15}/></a><div className="article-actions"><button className={liked ? 'selected-action' : ''} aria-label={'Like ' + article.title} disabled={disabled || liked} onClick={() => onAction(article, 'liked')} title="More like this"><Heart size={16} fill={liked ? 'currentColor' : 'none'}/></button><button className={saved ? 'selected-action' : ''} aria-label={'Save ' + article.title} disabled={disabled || saved} onClick={() => onAction(article, 'saved')} title="Save this story"><Bookmark size={16} fill={saved ? 'currentColor' : 'none'}/></button><button aria-label={'Skip ' + article.title} disabled={disabled} onClick={() => onAction(article, 'skipped')} title="Skip this story"><X size={17}/></button></div></div>

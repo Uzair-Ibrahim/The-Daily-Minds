@@ -1,5 +1,17 @@
 # The Daily Mind — final product audit and QA
 
+Latest image follow-up: **154 passed, 1 optional skipped in 77.53s**; Vite production
+build passed in 2.48s. Actual publisher images, desktop/mobile rendering, matching
+image-bearing PDF, missing/failed image fallback and the existing full browser journey
+passed. See [IMAGE_SUPPORT_REPORT.md](IMAGE_SUPPORT_REPORT.md) for feed-level evidence,
+changed files and limits. All changes remain local; no commit or push was made.
+
+Latest daily-generation audit: **121 passed, 1 optional skipped**; production build and
+real automatic-RSS/browser/PDF plus offline-fallback and full user-journey checks pass.
+See [daily generation and five-requirement verification](docs/DAILY_GENERATION_QA.md).
+The original audit below is retained as historical evidence. Daily local scheduling is
+now implemented; no changes from this follow-up were committed or pushed.
+
 Publication update (2026-10-17): the owner subsequently supplied the GitHub repository
 and authorized an initial snapshot. Publication blockers below describe the earlier
 local audit. Event-start/monitored-development compliance remains unresolved. See

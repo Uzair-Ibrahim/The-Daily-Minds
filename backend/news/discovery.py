@@ -14,6 +14,7 @@ import httpx
 
 from backend.config import Settings
 from backend.news.models import Article, TOPICS
+from backend.news.images import extract_image
 from backend.services.provenance import utc_now
 
 FEEDS = [
@@ -65,6 +66,8 @@ class NewsDiscovery:
         self.cache = None
         self.cache_expires = 0
         self.lock = asyncio.Lock()
+        self.feed_cache = {}
+        self.last_fetch_cached = False
 
     async def retrieve(self, query="", targeted=False):
         async with self.lock:
@@ -75,6 +78,7 @@ class NewsDiscovery:
                 articles, warnings = list(articles), list(warnings) + ["RSS responses reused from the short-lived cache; original retrieval times retained."]
             else:
                 articles, warnings = await self.fetch_feeds(query)
+                cached = self.last_fetch_cached
                 if not query and articles and self.settings.live_cache_ttl_seconds:
                     self.cache = (list(articles), list(warnings))
                     self.cache_expires = monotonic() + self.settings.live_cache_ttl_seconds
@@ -110,8 +114,14 @@ class NewsDiscovery:
         if query:
             feeds.insert(0, ("Google News RSS", "https://news.google.com/rss/search?" + urlencode({"q": query, "hl": "en", "gl": "PK", "ceid": "PK:en"})))
         semaphore = asyncio.Semaphore(3)
+        reused = []
 
         async def fetch(source, url, client):
+            saved = self.feed_cache.get(url)
+            if saved and monotonic() < saved[0]:
+                reused.append(True)
+                return list(saved[1]), saved[2]
+            reused.append(False)
             async with semaphore:
                 for attempt in range(2):
                     try:
@@ -140,19 +150,34 @@ class NewsDiscovery:
                                         publisher = "BBC"
                                     result.append(Article(id=hashlib.sha256(link.encode()).hexdigest()[:24], url=link,
                                         title=title, source=publisher, origin=url, description=description,
-                                        published_at=published, retrieved_at=retrieved, topics=topic_matches(title + " " + description)))
+                                        published_at=published, retrieved_at=retrieved, topics=topic_matches(title + " " + description),
+                                        **extract_image(entry, link)))
                                 except (ValueError, TypeError, OverflowError):
                                     continue
-                            return result, None if result else f"{source}: no usable feed entries."
+                            warning = None if result else f"{source}: no usable feed entries."
+                            if self.settings.live_cache_ttl_seconds:
+                                self.feed_cache[url] = (monotonic() + self.settings.live_cache_ttl_seconds, list(result), warning)
+                                while len(self.feed_cache) > 32:
+                                    del self.feed_cache[next(iter(self.feed_cache))]
+                            return result, warning
                     except (httpx.RequestError, httpx.HTTPStatusError, TimeoutError, ValueError):
                         if attempt == 0:
                             await asyncio.sleep(0.2)
                             continue
-                        return [], f"{source}: feed unavailable; other feeds retained."
+                        warning = f"{source}: feed unavailable; other feeds retained."
+                        if self.settings.live_cache_ttl_seconds:
+                            self.feed_cache[url] = (monotonic() + min(30, self.settings.live_cache_ttl_seconds), [], warning)
+                            while len(self.feed_cache) > 32:
+                                del self.feed_cache[next(iter(self.feed_cache))]
+                        return [], warning
 
         async with httpx.AsyncClient(timeout=httpx.Timeout(8, connect=4), follow_redirects=True,
                                      max_redirects=3, transport=self.transport,
                                      headers={"User-Agent": "TheDailyMind/1.0 (local RSS reader)"}) as client:
             results = await asyncio.gather(*(fetch(name, url, client) for name, url in feeds))
         articles = [article for batch in zip_longest(*(rows for rows, _ in results)) for article in batch if article is not None]
-        return articles, [warning for _, warning in results if warning]
+        self.last_fetch_cached = any(reused)
+        warnings = [warning for _, warning in results if warning]
+        if self.last_fetch_cached:
+            warnings.append('Some RSS responses reused from the short-lived feed cache; original retrieval times retained.')
+        return articles, warnings
