@@ -16,7 +16,8 @@ BASE_URL = os.getenv("DAILY_MIND_BASE_URL", "http://127.0.0.1:8000")
 
 def visible_text(value):
     value = unicodedata.normalize('NFKC', value)
-    return re.sub(r'\s+', ' ', ''.join(character for character in value if unicodedata.category(character) != 'Cf'))
+    value = re.sub(r'\s+', ' ', ''.join(character for character in value if unicodedata.category(character) != 'Cf'))
+    return re.sub(r'(?<=\w)- (?=\w)', '-', value)
 
 
 async def main():
@@ -86,7 +87,7 @@ async def main():
             await page.screenshot(path=str(ARTIFACTS / "archive-desktop.png"))
             await page.locator(".archive-card").last.click()
             await page.locator(".newspaper").wait_for()
-            assert first["articles"][0]["title"] in await page.locator(".newspaper").inner_text()
+            assert first["articles"][0]["title"] in await page.locator(".newspaper").text_content()
             await page.reload(wait_until="networkidle")
             await page.locator(".newspaper").wait_for()
             report["checks"].append("versioned archive and profile persistence on reload")

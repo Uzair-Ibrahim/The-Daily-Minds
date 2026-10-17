@@ -40,6 +40,13 @@ Pillow (local page rasterization), React, Vite, Tailwind CSS, Lucide icons, clsx
 tailwind-merge. Keep their bundled licenses/transitive notices with redistributions.
 System Georgia/Arial fonts are referenced, not bundled or downloaded.
 
+The newspaper masthead bundles unmodified UnifrakturMaguntia by j. 'mach' wust
+and Peter Wiegel under SIL Open Font License 1.1. The complete license and font
+are in `frontend/public/fonts/`. Source:
+https://github.com/google/fonts/tree/main/ofl/unifrakturmaguntia . The font is
+served locally. The user's reference informs the typography and paper palette;
+its portrait and portfolio content are not redistributed as news content.
+
 RSS sources: https://feeds.bbci.co.uk/ , https://www.dawn.com/feeds/home ,
 https://www.theguardian.com/world/rss and https://news.google.com/rss . Descriptions
 are attributed, length-bounded publisher excerpts; copyrights remain with publishers.

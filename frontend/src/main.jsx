@@ -7,6 +7,7 @@ import { ArticleImage } from './components/article-image';
 import { ArticleEngagement } from './components/article-engagement';
 import { StoryTimeline, ContinuingStories } from './components/story-timeline';
 import './styles.css';
+import './press.css';
 import { AuthRoom } from './auth-room';
 import { guestID, requestHeaders } from './auth-client';
 
@@ -140,15 +141,15 @@ function App({ identityKey }) {
   const onboarding = profile && (!profile.onboarded || editing);
   return <div className="app-shell">
     <div className="top-strip"><span>A LITTLE LESS NOISE. A LITTLE MORE PERSPECTIVE.</span><span><span className="status-dot"/>YOUR PRIVATE EDITION</span></div>
-    <header className="site-header"><button className="wordmark" onClick={() => { setView('paper'); setEditing(false); notify('Your paper.'); }} aria-label="The Daily Mind home">The Daily Mind<span>.</span></button>
+    <header className="site-header"><div className="header-folio"><span>THE PERSONAL</span><strong>EDITION</strong><small>INDEPENDENT SOURCES<br/>INDIVIDUAL PERSPECTIVE</small></div><div className="header-title"><span className="press-overline">A DAILY RITUAL FOR THE CURIOUS</span><button className="wordmark" onClick={() => { setView('paper'); setEditing(false); notify('Your paper.'); }} aria-label="The Daily Mind home">The Daily Mind</button><span className="press-tagline">LESS SCROLLING. MORE UNDERSTANDING.</span></div>
       {profile?.onboarded && !editing && <nav aria-label="Main navigation">{[['paper', 'Your paper', Newspaper], ['archive', 'The archive', Archive], ['dna', 'Interest DNA', Sparkles], ['saved', 'Reading list', Bookmark]].map(([id, label, Icon]) => <button key={id} className={view === id ? 'nav-active' : ''} onClick={() => { setView(id); if (id === 'saved') run('reading-list', async () => setReadingList(await api('/reading-list'))); notify(label + ' opened.'); }}><Icon size={15}/>{label}</button>)}</nav>}
-      <div className="header-end"><span className="small-caps">MADE FOR YOUR MIND</span><div className="avatar">M<span/></div></div>
+      <div className="header-end"><Newspaper size={36} strokeWidth={1}/><span className="small-caps">YOUR WORLD.<br/>IN PERSPECTIVE.</span></div>
     </header>
     {initializing ? <main className="page"><div className="initial-loading"><LoaderCircle className="spin"/><p>Opening your reading room…</p></div></main> : !profile ? <main className="page"><div className="empty-state"><Newspaper size={44}/><h1>Your reading room is offline.</h1><p>{error}</p><Button onClick={initialize}>Retry connection <RefreshCw size={16}/></Button></div></main> : onboarding ?
       <Onboarding profile={profile} saving={!!busy} onSave={savePreferences} onCancel={editing ? () => { setEditing(false); notify('Preferences editor closed.'); } : null} notify={notify}/> : <main className="page">
       {error && <div className="error-banner" role="alert"><Info size={18}/><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error"><X size={16}/></button></div>}
       {view === 'paper' && <>
-        <section className="welcome"><div><div className="eyebrow"><span className="mini-rule"/>THE PERSONAL EDITION</div><h1>A wider world.<br/><em>A clearer mind.</em></h1><p>Your interests, thoughtfully gathered into one good read.</p></div><div className="welcome-right"><div className="edition-stamp"><Newspaper size={25}/><span>CURATED BY YOUR CURIOSITY<br/><b>READ AT YOUR OWN PACE</b></span></div><Button disabled={!!busy} onClick={() => generate(!!edition)}>{busy === 'edition' ? <LoaderCircle size={16} className="spin"/> : <RefreshCw size={16}/>} {busy === 'edition' ? 'Preparing your edition…' : edition ? 'Make a new edition' : 'Make my first edition'}</Button></div></section>
+        <section className="welcome"><div><div className="eyebrow"><span className="mini-rule"/>THE PERSONAL EDITION</div><h1>A wider world.<br/> <em>A clearer mind.</em></h1><p>Your interests, thoughtfully gathered into one good read.</p></div><div className="welcome-right"><div className="edition-stamp"><Newspaper size={25}/><span>CURATED BY YOUR CURIOSITY<br/><b>READ AT YOUR OWN PACE</b></span></div><Button disabled={!!busy} onClick={() => generate(!!edition)}>{busy === 'edition' ? <LoaderCircle size={16} className="spin"/> : <RefreshCw size={16}/>} {busy === 'edition' ? 'Preparing your edition…' : edition ? 'Make a new edition' : 'Make my first edition'}</Button></div></section>
         {busy === 'edition' ? <div className="loading-paper" aria-live="polite"><div className="loading-caption"><LoaderCircle size={17} className="spin"/>Gathering public feeds and arranging your edition. No invented stories.</div><div className="skeleton big"/><div className="skeleton-grid">{[1, 2, 3].map(i => <div className="skeleton" key={i}/>)}</div></div> : edition ? <>
           <div className="paper-toolbar"><div className="topic-pills">{selectedTopics.map(topic => <span key={topic}>{labels[topic]}</span>)}</div><Button variant="outline" disabled={!!busy} onClick={downloadPDF}>{busy === 'pdf' ? <LoaderCircle className="spin" size={15}/> : <Download size={15}/>} {busy === 'pdf' ? 'Printing your paper…' : 'Download PDF'}</Button></div>
           <section className="newspaper" aria-label="Your saved newspaper edition">
